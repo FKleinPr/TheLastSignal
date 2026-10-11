@@ -1,7 +1,7 @@
 """Rule-based parser for The Last Signal game server.
 
 Parses natural language commands into structured actions when LLM is unavailable.
-Supports verbs: go, take, drop, give, show, use, talk, ask, pick-lock, wait, save, load, continue, restart.
+Supports verbs: go, take, drop, give, show, use, talk, ask, pick-lock, wait, save, load, continue, restart, look.
 
 Integration: Called from game_engine/commands.py when LLM_BASE_URL is down or no valid JSON response.
 
@@ -35,7 +35,7 @@ def get_valid_verbs() -> set:
     """Return set of valid verbs for the game."""
     return {
         "go", "take", "drop", "give", "show", "use", "talk", "ask",
-        "pick-lock", "pick_lock", "wait", "save", "load", "continue", "restart"
+        "pick-lock", "pick_lock", "wait", "save", "load", "continue", "restart", "look"
     }
 
 
@@ -225,6 +225,10 @@ def parse_command(text: str, game_state: Optional[dict] = None, content: Optiona
     if text_lower in ["save", "load", "continue_from_checkpoint", "restart_act_i"]:
         return {"verb": text_lower}
     
+    # Handle look command (exact match)
+    if text_lower == "look":
+        return {"verb": "look"}
+    
     # Record LLM request before calling (for testing)
     if game_state and content:
         record_request(text)
@@ -274,6 +278,10 @@ def _parse_rule_based(text: str, game_state: Optional[dict] = None) -> Optional[
     current_location = None
     if game_state:
         current_location = game_state.get("player_location", "")
+    
+    # Look command (exact match for "look")
+    if text == "look":
+        return {"verb": "look"}
     
     # Go commands (movement) - with "go" prefix
     go_match = re.match(r"go\s+(north|south|east|west|n|s|e|w)\b", text)

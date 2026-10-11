@@ -7,8 +7,11 @@ Integration: Called from api/commands.py to process player commands.
 """
 
 from typing import Dict, Any, Optional, List
-from content.loader import get_locations, get_objects, get_characters, get_rules, get_narrator
+from content.loader import get_locations, get_objects, get_characters, get_rules, get_narrator, get_clues
 from game_engine.ambiguity import check_ambiguity, get_present_thing_names
+from game_engine.characters import CharacterInteraction
+from game_engine.objects import ObjectInteraction
+from game_engine.clues import discover_clue, check_location_clue, check_object_clue, check_character_clue
 
 
 class CommandEngine:
@@ -22,6 +25,8 @@ class CommandEngine:
         self.characters = get_characters()
         self.rules = get_rules()
         self.narrator = get_narrator()
+        self.character_interaction = CharacterInteraction(game_state, self.characters)
+        self.object_interaction = ObjectInteraction(game_state, self.objects)
     
     def execute_command(self, parsed: Dict[str, Any]) -> Dict[str, Any]:
         """Execute parsed command and return response.
@@ -44,6 +49,9 @@ class CommandEngine:
         
         if verb in ["continue_from_checkpoint", "restart_act_i"]:
             return self._handle_continue_restart(verb)
+        
+        if verb == "look":
+            return self._handle_look()
         
         # Handle movement
         if verb == "go":
@@ -176,9 +184,42 @@ class CommandEngine:
         target_location_data = self.locations.get(target_location, {})
         description = target_location_data.get("description", "")
         
+        # Check for location clue when entering new location
+        location_clue_id = check_location_clue(target_location)
+        if location_clue_id:
+            discover_clue(location_clue_id, self.game_state)
+        
         return {
             "text": description,
             "location": target_location,
+            "inventory": self.game_state["inventory"],
+            "dead": self.game_state["dead"],
+            "choices": [],
+        }
+    
+    def _handle_look(self) -> Dict[str, Any]:
+        """Handle look command.
+        
+        Returns location description and discovers location clue if present.
+        """
+        current_location = self.game_state["player_location"]
+        location_data = self.locations.get(current_location, {})
+        description = location_data.get("description", "")
+        
+        # Discover location clue when looking at the location
+        location_clue_id = check_location_clue(current_location)
+        if location_clue_id:
+            discover_clue(location_clue_id, self.game_state)
+        
+        # Add clue text to description if discovered
+        clues = get_clues()
+        if location_clue_id and location_clue_id in clues:
+            clue_text = clues[location_clue_id].get("text", "")
+            description = f"{description}\n\n{clue_text}"
+        
+        return {
+            "text": description,
+            "location": current_location,
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
             "choices": [],
@@ -197,6 +238,12 @@ class CommandEngine:
                 found = True
                 if obj_id not in self.game_state["inventory"]:
                     self.game_state["inventory"].append(obj_id)
+                
+                # Discover clue from taking object
+                clue_id = check_object_clue(obj_id)
+                if clue_id:
+                    discover_clue(clue_id, self.game_state)
+                
                 break
         
         if not found:
@@ -252,10 +299,18 @@ class CommandEngine:
                 found = True
                 char_data = self.characters.get(char_id, {})
                 lines = char_data.get("lines", [])
-                if lines:
-                    text = lines[0]
-                else:
-                    text = "You talk to them, but they don't say anything."
+                
+                # Check if player has core for conditional dialogue
+                has_core = "core" in self.game_state.get("inventory", [])
+                
+                # Get appropriate lines based on game state
+                character_lines = self.character_interaction.get_character_lines(char_id, has_core)
+                text = character_lines[0]
+                
+                # Discover clue from talking to character
+                clue_id = check_character_clue(char_id, has_core)
+                if clue_id:
+                    discover_clue(clue_id, self.game_state)
                 
                 return {
                     "text": text,
@@ -339,6 +394,9 @@ class CommandEngine:
                 if object_name in self.game_state["inventory"]:
                     self.game_state["inventory"].remove(object_name)
                 
+                # Update relationship
+                self.character_interaction.update_relationship(char_id, 1)
+                
                 return {
                     "text": f"You give the {object_name} to {target}.",
                     "location": current_location,
@@ -388,8 +446,12 @@ class CommandEngine:
                 char_data = self.characters.get(char_id, {})
                 lines = char_data.get("lines", [])
                 
-                # Check if this is the core showing to priest-voa (special case)
+                # Special case: show core to priest-voa gives coolant-bottle
                 if object_name == "core" and char_id == "priest-voa":
+                    # Give coolant-bottle to player
+                    if "coolant-bottle" not in self.game_state["inventory"]:
+                        self.game_state["inventory"].append("coolant-bottle")
+                    
                     return {
                         "text": "The ship knows you have it. The Awakeners will want it. The Silencers will kill for it.",
                         "location": current_location,
@@ -398,10 +460,17 @@ class CommandEngine:
                         "choices": [],
                     }
                 
-                if lines:
-                    text = lines[0]
-                else:
-                    text = f"You show the {object_name} to {target}, but they don't react."
+                # Check if player has core for conditional dialogue
+                has_core = "core" in self.game_state.get("inventory", [])
+                
+                # Get appropriate lines based on game state
+                character_lines = self.character_interaction.get_character_lines(char_id, has_core)
+                text = character_lines[0]
+                
+                # Discover clue from showing object to character
+                clue_id = check_character_clue(char_id, has_core)
+                if clue_id:
+                    discover_clue(clue_id, self.game_state)
                 
                 return {
                     "text": text,
