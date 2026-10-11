@@ -10,6 +10,13 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+# Import and validate content
+from content.loader import get_pictures
+from content.validator import validate_content
+
+# Validate content at startup - server fails to start with clear error if invalid
+validate_content()
+
 # Game state storage (in-memory for PoC, SQLite for persistence)
 # For now, use simple dict; tests verify persistence through GET /api/games/{id}
 
@@ -89,21 +96,33 @@ def new_game():
         "updated_at": now.isoformat(),
     }
     
+    # Get opening text from content
+    from content.loader import get_start
+    start = get_start()
+    opening_text = start.get("text", "The red sand presses against your boots.")
+    
+    # Get pictures for current location
+    pictures = get_pictures()
+    current_location = "bone-yard"
+    location_pictures = [p for p in pictures if p.get("name") == current_location]
+    
+    response_pictures = []
+    for p in location_pictures:
+        response_pictures.append({
+            "name": p.get("name"),
+            "type": p.get("type"),
+            "size": p.get("size"),
+            "available": False,
+            "terminal": None,
+            "placeholder": f"[ picture: {p.get('name')} ]"
+        })
+    
     response = Response(
         game_id=game_id,
-        text="The red sand presses against your boots. Ribs of rusted metal jut from the earth like the bones of fallen gods, their curved spines casting long shadows across the wasteland.",
+        text=opening_text,
         location="bone-yard",
         inventory=[],
-        pictures=[
-            {
-                "name": "bone-yard",
-                "type": "scene",
-                "size": "160x90",
-                "available": False,
-                "terminal": None,
-                "placeholder": "[ picture: bone-yard ]"
-            }
-        ],
+        pictures=response_pictures,
         choices=[],
         dead=False,
         ending=None,
@@ -237,7 +256,9 @@ def process_command(game_id: str, payload: CommandPayload):
     
     # Process game commands
     # Default response for unknown commands
-    game_text = "I'm not sure what you're trying to do. What do you want to do here?"
+    from content.loader import get_narrator
+    narrator = get_narrator()
+    game_text = narrator.get("unknown", "I'm not sure what you're trying to do. What do you want to do here?")
     
     # Move to next turn
     state["turns"] += 1
@@ -265,142 +286,9 @@ def process_command(game_id: str, payload: CommandPayload):
 
 
 @app.get("/api/pictures")
-def get_pictures():
-    return [
-        {
-            "name": "bone-yard",
-            "entity_id": "bone-yard",
-            "type": "scene",
-            "size": "160x90",
-            "description": "Red sand rusted ship ribs with holy signs painted.",
-        },
-        {
-            "name": "watchtower",
-            "entity_id": "watchtower",
-            "type": "scene",
-            "size": "160x90",
-            "description": "Satellite dish painted like a holy sign.",
-        },
-        {
-            "name": "scrap-market",
-            "entity_id": "scrap-market",
-            "type": "scene",
-            "size": "160x90",
-            "description": "Piles of coolant bottles and scrap metal.",
-        },
-        {
-            "name": "edge-of-town",
-            "entity_id": "edge-of-town",
-            "type": "scene",
-            "size": "160x90",
-            "description": "Broken fence and escape route.",
-        },
-        {
-            "name": "archives",
-            "entity_id": "archives",
-            "type": "scene",
-            "size": "160x90",
-            "description": "Leather-bound data-slates glowing in dim light.",
-        },
-        {
-            "name": "sanctum",
-            "entity_id": "sanctum",
-            "type": "scene",
-            "size": "160x90",
-            "description": "Awakeners hiding in ribs, shadows and ozone.",
-        },
-        {
-            "name": "control-center",
-            "entity_id": "control-center",
-            "type": "scene",
-            "size": "160x90",
-            "description": "Silencers with locked door and humming.",
-        },
-        {
-            "name": "deep-ribs",
-            "entity_id": "deep-ribs",
-            "type": "scene",
-            "size": "160x90",
-            "description": "Inside hull, dark, humming air, blue light.",
-        },
-        {
-            "name": "player",
-            "entity_id": "player",
-            "type": "character",
-            "size": "32x32",
-            "description": "Ordinary individual with core in hand.",
-        },
-        {
-            "name": "priest-voa",
-            "entity_id": "priest-voa",
-            "type": "character",
-            "size": "32x32",
-            "description": "Guard with robe, touches hull.",
-        },
-        {
-            "name": "child-echo",
-            "entity_id": "child-echo",
-            "type": "character",
-            "size": "32x32",
-            "description": "Small child with closed eyes, ear pressed to red sand, ragged orange scarf.",
-        },
-        {
-            "name": "merchant-jex",
-            "entity_id": "merchant-jex",
-            "type": "character",
-            "size": "32x32",
-            "description": "Trader smelling items, dark clothes.",
-        },
-        {
-            "name": "archivist-lira",
-            "entity_id": "archivist-lira",
-            "type": "character",
-            "size": "32x32",
-            "description": "Scholar reading glowing slates.",
-        },
-        {
-            "name": "silencer-leader",
-            "entity_id": "silencer-leader",
-            "type": "character",
-            "size": "32x32",
-            "description": "Silencer in dark uniform, hand on weapon.",
-        },
-        {
-            "name": "core",
-            "entity_id": "core",
-            "type": "item",
-            "size": "16x16",
-            "description": "Glowing metal object, signal source.",
-        },
-        {
-            "name": "key",
-            "entity_id": "key",
-            "type": "tool",
-            "size": "16x16",
-            "description": "Metal key for locked door.",
-        },
-        {
-            "name": "data-slate",
-            "entity_id": "data-slate",
-            "type": "item",
-            "size": "16x16",
-            "description": "Leather-bound book with glowing text.",
-        },
-        {
-            "name": "lock-pick",
-            "entity_id": "lock-pick",
-            "type": "tool",
-            "size": "16x16",
-            "description": "Bent antenna wire, works as pick.",
-        },
-        {
-            "name": "coolant-bottle",
-            "entity_id": "coolant-bottle",
-            "type": "item",
-            "size": "16x16",
-            "description": "Bottle of blue liquid, god's blood.",
-        },
-    ]
+def get_pictures_endpoint():
+    """Get the full picture list from content."""
+    return get_pictures()
 
 
 if __name__ == "__main__":

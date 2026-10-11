@@ -281,7 +281,6 @@ rules:
   - id: use-key-on-door
     verb: use
     object: key
-    target: door
     requires:
       items:
         - key
@@ -315,15 +314,6 @@ rules:
     effects:
       text: "The Silencers took the core and controlled the ship. They imprisoned you, but the town was saved. Now you must break out and take back what you started. Act II: Can you escape the Silencers' prison and reclaim the core, or will you become one of their tools?"
       ending: ending-silencers
-
-  - id: flee-to-edge
-    verb: go
-    target: edge-of-town
-    requires:
-      location: scrap-market
-    effects:
-      text: "You ran to the edge of town and fled before the ship destroyed everything. The ship's systems activated, but you're gone. Now you must survive the wasteland alone, with the core in your hands. Act II: Can you survive the wasteland, or will the core destroy you?"
-      ending: ending-escape
 
 deaths:
   death-dust:
