@@ -76,5 +76,14 @@ def control_reset():
     return {"status": "ok"}
 
 
+@app.post("/control/record")
+def control_record(data: dict):
+    """Record LLM request for testing."""
+    global _requests
+    messages = data.get("messages", [])
+    _requests.append({"messages": messages})
+    return {"status": "ok"}
+
+
 if __name__ == "__main__":
     uvicorn.run("stub_llm:app", host="0.0.0.0", port=8001)

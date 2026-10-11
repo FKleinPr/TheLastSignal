@@ -1,5 +1,6 @@
 """Game server for The Last Signal: Act I."""
 
+import copy
 import os
 import uuid
 from datetime import datetime
@@ -88,6 +89,8 @@ def new_game():
             "clues": [],
             "events": [],
             "location_history": ["bone-yard"],
+            "dust_count": 0,
+            "last_checkpoint": None,
         },
         "checkpoints": [],
         "save_slot": None,
@@ -161,21 +164,7 @@ def process_command_in_game(game_id: str, text: str) -> Response:
     
     state = games[game_id]["state"]
     
-    # Handle dead state
-    if state["dead"]:
-        return Response(
-            game_id=game_id,
-            text="You are dead. Choose: continue_from_checkpoint or restart_act_i",
-            location=state["player_location"],
-            inventory=state["inventory"],
-            pictures=[],
-            choices=["continue_from_checkpoint", "restart_act_i"],
-            dead=True,
-            ending=None,
-            turn=state["turns"],
-        )
-    
-    # Handle save/load commands
+    # Handle save/load commands first (before dead check)
     if text == "save":
         games[game_id]["save_slot"] = {
             "state": state.copy(),
@@ -220,19 +209,76 @@ def process_command_in_game(game_id: str, text: str) -> Response:
             turn=state["turns"],
         )
     
-    # Handle continue/restart commands
-    if text in ["continue_from_checkpoint", "restart_act_i"]:
+    # Handle dead state - but allow continue/restart to be processed
+    if state["dead"] and text not in ["continue", "restart"]:
         return Response(
             game_id=game_id,
-            text="Command not processed yet.",
+            text="You are dead. Choose: continue or restart",
             location=state["player_location"],
             inventory=state["inventory"],
             pictures=[],
-            choices=[],
-            dead=False,
+            choices=["continue", "restart"],
+            dead=True,
             ending=None,
             turn=state["turns"],
         )
+    
+    # Handle continue/restart commands (changed from continue_from_checkpoint/restart_act_i)
+    if text in ["continue", "restart"]:
+        from game_engine.recovery import continue_from_checkpoint, restart_game, get_checkpoint
+        
+        if text == "continue":
+            # Continue from checkpoint
+            checkpoint = get_checkpoint(state)
+            recovery_result = continue_from_checkpoint(state, checkpoint)
+            
+            # Update game state from recovery
+            state["player_location"] = recovery_result.get("location", state["player_location"])
+            state["inventory"] = recovery_result.get("inventory", state["inventory"])
+            state["flags"] = recovery_result.get("flags", state["flags"])
+            state["clues"] = recovery_result.get("clues", state["clues"])
+            state["dead"] = False
+            state["turns"] = recovery_result.get("turn", state["turns"])
+            state["last_checkpoint"] = None
+            
+            return Response(
+                game_id=game_id,
+                text=recovery_result.get("text", "You have been restored from the last checkpoint."),
+                location=state["player_location"],
+                inventory=state["inventory"],
+                pictures=[],
+                choices=[],
+                dead=False,
+                ending=None,
+                turn=state["turns"],
+            )
+        
+        if text == "restart":
+            # Restart game from beginning
+            start = get_start()
+            recovery_result = restart_game(state, start)
+            
+            # Update game state from recovery
+            state["player_location"] = recovery_result.get("location", "bone-yard")
+            state["inventory"] = []
+            state["flags"] = []
+            state["clues"] = []
+            state["dead"] = False
+            state["turns"] = 0
+            state["ending"] = None
+            state["last_checkpoint"] = None
+            
+            return Response(
+                game_id=game_id,
+                text=recovery_result.get("text", "Game restarted."),
+                location=state["player_location"],
+                inventory=[],
+                pictures=[],
+                choices=[],
+                dead=False,
+                ending=None,
+                turn=state["turns"],
+            )
     
     # Process game commands using LLM + rule-based parser
     from game_engine.parser import parse_command
@@ -252,9 +298,62 @@ def process_command_in_game(game_id: str, text: str) -> Response:
         "pictures": get_pictures(),
     }
     
+    # Track previous location before executing command (for dust timer)
+    previous_location = state["player_location"]
+    
+    # Save state BEFORE any command processing for checkpoint
+    state_before = copy.deepcopy(state)
+    
     parsed = parse_command(text, state, content)
     engine = CommandEngine(state, content)
     result = engine.execute_command(parsed)
+    
+    # Apply signal event if triggered (take core in bone-yard)
+    from game_engine.signal_event import trigger_signal_event, get_signal_text
+    
+    # Get action verb from parsed command
+    action_verb = parsed.get("verb") if parsed else None
+    action_object = parsed.get("object") if parsed else None
+    
+    signal_result = trigger_signal_event(state, state["player_location"], state["inventory"], action_verb or "")
+    
+    # Create checkpoint from state_before (before any modifications)
+    if signal_result.get("create_checkpoint"):
+        from game_engine.recovery import create_checkpoint
+        state["last_checkpoint"] = create_checkpoint(state_before)
+    
+    # Apply signal flags
+    for flag in signal_result.get("set_flags", []):
+        if flag not in state["flags"]:
+            state["flags"].append(flag)
+    
+    # Apply signal dust_count (set to 0 when signal event fires)
+    if "set_dust_count" in signal_result:
+        state["dust_count"] = signal_result["set_dust_count"]
+    
+    # Apply signal text if present
+    if signal_result.get("signal_text"):
+        result["text"] = signal_result.get("signal_text", result.get("text", ""))
+    
+    # Apply timers and death handling - call check_all_timers() only once (fix duplicate call)
+    from game_engine.timers import check_all_timers
+    from game_engine.death import trigger_death
+    
+    # Only call timers when signal event did not fire in this command
+    if "set_dust_count" in signal_result:
+        death_result = {}
+    else:
+        death_result = check_all_timers(state, previous_location)
+    
+    if death_result.get("dead"):
+        death_text = death_result.get("text", "You have died.")
+        result["text"] = death_text
+        result["dead"] = True
+        result["choices"] = ["continue", "restart"]
+        state["dead"] = True  # Update state for next command
+    elif death_result.get("text"):
+        # Add warning text to result text
+        result["text"] = result.get("text", "") + " " + death_result.get("text", "")
     
     # Get pictures for current location
     pictures = get_pictures()
