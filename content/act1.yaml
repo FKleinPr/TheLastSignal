@@ -1,0 +1,477 @@
+# Game content for The Last Signal: Act I
+
+start:
+  location: bone-yard
+  text: "The red sand presses against your boots. Ribs of rusted metal jut from the earth like the bones of fallen gods, their curved spines casting long shadows across the wasteland. You're not important here—just another wanderer who didn't listen to the warnings. But something in the sand smells wrong, like ozone after a lightning strike. A patch of metal that shouldn't be rusted glints between two ribs, half-buried and waiting."
+
+locations:
+  bone-yard:
+    description: "Red sand presses against boots. Rusted metal ribs jut from the earth like the bones of fallen gods, their curved spines casting long shadows. Locals paint holy signs on the ribs, believing they're the bones of dead deities. One patch of metal that shouldn't be rusted glints between two ribs, half-buried and waiting."
+    exits:
+      - direction: north
+        target: watchtower
+        blocked: false
+      - direction: east
+        target: scrap-market
+        blocked: false
+    objects:
+      - core
+    characters: []
+    
+  watchtower:
+    description: "A satellite dish painted like a holy sign. The humming sound comes from the dish—it changes pitch when you hold the core. Locals avoid it, calling it cursed, but the dish turns by itself when you get close."
+    exits:
+      - direction: south
+        target: bone-yard
+        blocked: false
+      - direction: east
+        target: archives
+        blocked: false
+    objects:
+      - lock-pick
+    characters: []
+    
+  scrap-market:
+    description: "Piles of coolant bottles and scrap metal. Kael's stall is empty, but the scent of rusted oil hangs where he used to stand. Piles of 'god's blood' (coolant) bottles sit next to the scrap."
+    exits:
+      - direction: west
+        target: bone-yard
+        blocked: false
+      - direction: north
+        target: edge-of-town
+        blocked: false
+    objects: []
+    characters:
+      - merchant-jex
+    
+  edge-of-town:
+    description: "A broken fence marks the escape point. Beyond the fence, the sand stretches to the horizon. The wind picks up here, carrying the hum of the dish."
+    exits:
+      - direction: south
+        target: scrap-market
+        blocked: false
+    objects: []
+    characters: []
+    
+  archives:
+    description: "Leather-bound data-slates glow in dim light. Books that glow when touched sit on shelves. The air smells of old paper and ozone."
+    exits:
+      - direction: west
+        target: watchtower
+        blocked: false
+      - direction: south
+        target: sanctum
+        blocked: false
+    objects:
+      - data-slate
+    characters:
+      - archivist-lira
+    
+  sanctum:
+    description: "Awakeners hide here in the shadows of the ribs. The air smells of ozone, thick and sharp. The hum from the dish echoes in the walls."
+    exits:
+      - direction: north
+        target: archives
+        blocked: false
+      - direction: east
+        target: control-center
+        blocked: true
+        unlock_condition: gate-locked-solved
+    objects: []
+    characters:
+      - priest-voa
+    
+  control-center:
+    description: "Silencers hide here. The locked door needs a key. The hum from the dish is loudest here. The air smells like ozone and fear."
+    exits:
+      - direction: west
+        target: sanctum
+        blocked: false
+      - direction: north
+        target: deep-ribs
+        blocked: false
+    objects: []
+    characters:
+      - silencer-leader
+    
+  deep-ribs:
+    description: "Inside the hull, dark, humming air. The walls pulse with faint blue light. The hum is loudest here, vibrating in your teeth."
+    exits:
+      - direction: south
+        target: control-center
+        blocked: false
+    objects: []
+    characters: []
+
+objects:
+  core:
+    names:
+      - core
+      - signal
+      - metal
+    description: "Glowing metal object, signal source."
+    
+  key:
+    names:
+      - key
+      - metal-key
+      - locked-door-key
+    description: "Metal key for locked door."
+    
+  data-slate:
+    names:
+      - data-slate
+      - book
+      - glowing-book
+    description: "Leather-bound book with glowing text."
+    
+  lock-pick:
+    names:
+      - lock-pick
+      - bent-wire
+      - antenna-wire
+    description: "Bent antenna wire, works as pick."
+    
+  coolant-bottle:
+    names:
+      - coolant-bottle
+      - coolant
+      - god's-blood
+      - blue-liquid
+    description: "Bottle of blue liquid, god's blood."
+
+characters:
+  priest-voa:
+    location: sanctum
+    faction: Tribal
+    look: "Guard with robe, touches hull when walking"
+    habit: "Touches hull when walking"
+    wants: "Safety from the ship's noise"
+    secret: "He's afraid of the noise the ship makes"
+    lines:
+      - "The hull breathes when you stand still."
+      - "The ship knows you have it. The Awakeners will want it. The Silencers will kill for it."
+      - "I've seen what happens to people who wake the dead. Don't be one of them."
+      
+  child-echo:
+    location: scrap-market
+    faction: Tribal
+    look: "Child listening to sand, eyes closed when humming"
+    habit: "Listens to sand"
+    wants: "Friends who don't leave"
+    secret: "Hears voices in the sand"
+    lines:
+      - "It sings in the red dust."
+      - "The ship sings when you hold it. It wants to wake up."
+      - "I heard it calling before the sand came. Before the ribs grew."
+      
+  merchant-jex:
+    location: scrap-market
+    faction: Tribal
+    look: "Trader smelling items"
+    habit: "Smells things"
+    wants: "Profit and safe passage out"
+    secret: "Sells coolant as medicine"
+    lines:
+      - "Coolant tastes like the sky."
+      - "I'll give you the key for that bottle. You can pick the lock yourself—that takes skill."
+      - "The Silencers will come for you. They always come for what they want."
+      
+  archivist-lira:
+    location: archives
+    faction: Awakeners
+    look: "Scholar reading glowing slates"
+    habit: "Reads slates"
+    wants: "Truth about the crash"
+    secret: "Knows the crash history"
+    lines:
+      - "The books say they flew."
+      - "The Awakeners will help you. Give the core to us, and we'll wake it properly."
+      - "The Silencers don't want to wake it. They want to control it. Don't trust them."
+      
+  silencer-leader:
+    location: control-center
+    faction: Silencers
+    look: "Silencer in dark uniform, hand on weapon"
+    habit: "Checks door locks"
+    wants: "Control of the ship"
+    secret: "Knows the ship's history too"
+    lines:
+      - "Control is the only path to survival."
+      - "Give the core to us. We'll make sure it doesn't destroy this town."
+      - "The Awakeners will wake it and let it kill us all. Don't be naive."
+
+factions:
+  Awakeners:
+    goal: "Wake the ship properly"
+    method: "Use the core to activate the ship's systems"
+    members:
+      - archivist-lira
+      
+  Silencers:
+    goal: "Control or silence the ship"
+    method: "Take the core and lock down the ship"
+    members:
+      - silencer-leader
+      
+  Tribal:
+    goal: "Survive the ship's awakening"
+    method: "Avoid the ship, find safe passage out"
+    members:
+      - priest-voa
+      - child-echo
+      - merchant-jex
+
+rules:
+  - id: take-core
+    verb: take
+    object: core
+    location: bone-yard
+    requires:
+      not_flags:
+        - signal-awakened
+    effects:
+      text: "The ship has woken up, and it knows you're here."
+      add_items:
+        - core
+      set_flags:
+        - signal-awakened
+        - dust-active
+
+  - id: give-coolant-for-key
+    verb: give
+    object: coolant-bottle
+    target: merchant-jex
+    requires:
+      items:
+        - coolant-bottle
+    effects:
+      text: "I'll give you the key for that bottle. You can pick the lock yourself—that takes skill."
+      remove_items:
+        - coolant-bottle
+      add_items:
+        - key
+
+  - id: show-core-to-priest
+    verb: show
+    object: core
+    target: priest-voa
+    requires:
+      items:
+        - core
+      location: sanctum
+    effects:
+      text: "The ship knows you have it. The Awakeners will want it. The Silencers will kill for it."
+      give_item:
+        to: player
+        item: coolant-bottle
+
+  - id: pick-lock
+    verb: pick-lock
+    requires:
+      items:
+        - lock-pick
+      location: sanctum
+    effects:
+      text: "You pick the lock. The sound echoes in the sanctum."
+      unblock_exit:
+        from: sanctum
+        direction: east
+
+  - id: use-key-on-door
+    verb: use
+    object: key
+    target: door
+    requires:
+      items:
+        - key
+      location: sanctum
+    effects:
+      text: "You use the key on the locked door. It clicks open."
+      unblock_exit:
+        from: sanctum
+        direction: east
+
+  - id: give-core-to-archivist
+    verb: give
+    object: core
+    target: archivist-lira
+    requires:
+      items:
+        - core
+      location: archives
+    effects:
+      text: "The Awakeners took the core and woke the ship. The town was destroyed, but you escaped. The ship's systems activated, and now it's hunting you across the wasteland. Act II: Can you survive the ship's pursuit, or will you let it consume everything you love?"
+      ending: ending-awakeners
+
+  - id: give-core-to-silencer
+    verb: give
+    object: core
+    target: silencer-leader
+    requires:
+      items:
+        - core
+      location: control-center
+    effects:
+      text: "The Silencers took the core and controlled the ship. They imprisoned you, but the town was saved. Now you must break out and take back what you started. Act II: Can you escape the Silencers' prison and reclaim the core, or will you become one of their tools?"
+      ending: ending-silencers
+
+  - id: flee-to-edge
+    verb: go
+    target: edge-of-town
+    requires:
+      location: scrap-market
+    effects:
+      text: "You ran to the edge of town and fled before the ship destroyed everything. The ship's systems activated, but you're gone. Now you must survive the wasteland alone, with the core in your hands. Act II: Can you survive the wasteland, or will the core destroy you?"
+      ending: ending-escape
+
+deaths:
+  death-dust:
+    text: "You are now part of the bone-yard's collection. It is not a selective collection."
+    warning: "You coughed. The sand is getting thicker around your boots."
+    location: bone-yard
+    turns: 3
+    
+  death-humming:
+    text: "The ship decided you were cargo. You did not fit."
+    warning: "The hum is getting louder. Your ears are bleeding."
+    location: deep-ribs
+    turns: 2
+    
+  death-faction:
+    text: "Trust is a luxury this town cannot afford."
+    warning: "Silencer-Leader is looking at you. He doesn't like your refusal."
+    location: control-center
+    
+  death-awakening:
+    text: "The ship's awakening finished without you. You are part of the wreckage now."
+    warning: "The ribs are moving. You can hear them grinding against each other."
+
+endings:
+  ending-awakeners:
+    text: "The Awakeners took the core and woke the ship. The town was destroyed, but you escaped. The ship's systems activated, and now it's hunting you across the wasteland. Act II: Can you survive the ship's pursuit, or will you let it consume everything you love?"
+    
+  ending-silencers:
+    text: "The Silencers took the core and controlled the ship. They imprisoned you, but the town was saved. Now you must break out and take back what you started. Act II: Can you escape the Silencers' prison and reclaim the core, or will you become one of their tools?"
+    
+  ending-escape:
+    text: "You ran to the edge of town and fled before the ship destroyed everything. The ship's systems activated, but you're gone. Now you must survive the wasteland alone, with the core in your hands. Act II: Can you survive the wasteland, or will the core destroy you?"
+
+clues:
+  clue-location:
+    text: "The metal is not god's bone—it's technology that shouldn't be rusted."
+    found_in: bone-yard
+    
+  clue-character:
+    text: "The ship sings in the sand, and it calls to those who hold the core."
+    found_in: child-echo
+    
+  clue-object:
+    text: "The books say the ship flew here long ago, and crashed after a long journey."
+    found_in: data-slate
+
+narrator:
+  unknown: "I'm not sure what you're trying to do. What do you want to do here?"
+  impossible: "That's not happening here. Try something less ambitious."
+  ambiguous: "Which"
+  blocked: "locked"
+  save: "Game saved."
+  load: "Game loaded."
+  no-save-slot: "No save slot available."
+
+pictures:
+  - name: bone-yard
+    entity_id: bone-yard
+    type: scene
+    size: 160x90
+    description: "Red sand rusted ship ribs with holy signs painted."
+  - name: watchtower
+    entity_id: watchtower
+    type: scene
+    size: 160x90
+    description: "Satellite dish painted like a holy sign."
+  - name: scrap-market
+    entity_id: scrap-market
+    type: scene
+    size: 160x90
+    description: "Piles of coolant bottles and scrap metal."
+  - name: edge-of-town
+    entity_id: edge-of-town
+    type: scene
+    size: 160x90
+    description: "Broken fence and escape route."
+  - name: archives
+    entity_id: archives
+    type: scene
+    size: 160x90
+    description: "Leather-bound data-slates glowing in dim light."
+  - name: sanctum
+    entity_id: sanctum
+    type: scene
+    size: 160x90
+    description: "Awakeners hiding in ribs, shadows and ozone."
+  - name: control-center
+    entity_id: control-center
+    type: scene
+    size: 160x90
+    description: "Silencers with locked door and humming."
+  - name: deep-ribs
+    entity_id: deep-ribs
+    type: scene
+    size: 160x90
+    description: "Inside hull, dark, humming air, blue light."
+  - name: player
+    entity_id: player
+    type: character
+    size: 32x32
+    description: "Ordinary individual with core in hand."
+  - name: priest-voa
+    entity_id: priest-voa
+    type: character
+    size: 32x32
+    description: "Guard with robe, touches hull."
+  - name: child-echo
+    entity_id: child-echo
+    type: character
+    size: 32x32
+    description: "Small child with closed eyes, ear pressed to red sand, ragged orange scarf."
+  - name: merchant-jex
+    entity_id: merchant-jex
+    type: character
+    size: 32x32
+    description: "Trader smelling items, dark clothes."
+  - name: archivist-lira
+    entity_id: archivist-lira
+    type: character
+    size: 32x32
+    description: "Scholar reading glowing slates."
+  - name: silencer-leader
+    entity_id: silencer-leader
+    type: character
+    size: 32x32
+    description: "Silencer in dark uniform, hand on weapon."
+  - name: core
+    entity_id: core
+    type: item
+    size: 16x16
+    description: "Glowing metal object, signal source."
+  - name: key
+    entity_id: key
+    type: tool
+    size: 16x16
+    description: "Metal key for locked door."
+  - name: data-slate
+    entity_id: data-slate
+    type: item
+    size: 16x16
+    description: "Leather-bound book with glowing text."
+  - name: lock-pick
+    entity_id: lock-pick
+    type: tool
+    size: 16x16
+    description: "Bent antenna wire, works as pick."
+  - name: coolant-bottle
+    entity_id: coolant-bottle
+    type: item
+    size: 16x16
+    description: "Bottle of blue liquid, god's blood."

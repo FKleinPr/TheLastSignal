@@ -1,0 +1,46 @@
+services:
+  game-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    volumes:
+      - game-data:/data
+    ports:
+      - "127.0.0.1:18003:8000"
+    networks:
+      - last-signal-net
+    mem_limit: 768m
+    cpus: 1.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  stub-llm:
+    build:
+      context: stubs/llm
+      dockerfile: Dockerfile
+    networks:
+      - last-signal-net
+    mem_limit: 128m
+    cpus: 0.5
+
+  stub-generator:
+    build:
+      context: stubs/generator
+      dockerfile: Dockerfile
+    networks:
+      - last-signal-net
+    mem_limit: 128m
+    cpus: 0.5
+
+volumes:
+  game-data:
+    driver: local
+
+networks:
+  last-signal-net:
+    driver: bridge
