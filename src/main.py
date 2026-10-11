@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 # Import and validate content
-from content.loader import get_pictures
+from content.loader import get_pictures, get_locations, get_start
 from content.validator import validate_content
 
 # Validate content at startup - server fails to start with clear error if invalid
@@ -97,7 +97,6 @@ def new_game():
     }
     
     # Get opening text from content
-    from content.loader import get_start
     start = get_start()
     opening_text = start.get("text", "The red sand presses against your boots.")
     
@@ -155,32 +154,25 @@ def get_game_state(game_id: str):
     }
 
 
-@app.post("/api/games/{game_id}/commands")
-def process_command(game_id: str, payload: CommandPayload):
+def process_command_in_game(game_id: str, text: str) -> Response:
+    """Process a command for a specific game and return Response."""
     if game_id not in games:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    if not payload.text:
-        raise HTTPException(status_code=422, detail="Empty or missing text")
-    
     state = games[game_id]["state"]
-    text = payload.text.lower().strip()
     
     # Handle dead state
     if state["dead"]:
-        return JSONResponse(
-            status_code=200,
-            content={
-                "game_id": game_id,
-                "text": "You are dead. Choose: continue_from_checkpoint or restart_act_i",
-                "location": state["player_location"],
-                "inventory": state["inventory"],
-                "pictures": [],
-                "choices": ["continue_from_checkpoint", "restart_act_i"],
-                "dead": True,
-                "ending": None,
-                "turn": state["turns"],
-            }
+        return Response(
+            game_id=game_id,
+            text="You are dead. Choose: continue_from_checkpoint or restart_act_i",
+            location=state["player_location"],
+            inventory=state["inventory"],
+            pictures=[],
+            choices=["continue_from_checkpoint", "restart_act_i"],
+            dead=True,
+            ending=None,
+            turn=state["turns"],
         )
     
     # Handle save/load commands
@@ -190,75 +182,81 @@ def process_command(game_id: str, payload: CommandPayload):
             "timestamp": datetime.now().isoformat(),
         }
         state["has_save"] = True
-        return JSONResponse(
-            status_code=200,
-            content={
-                "game_id": game_id,
-                "text": "Game saved.",
-                "location": state["player_location"],
-                "inventory": state["inventory"],
-                "pictures": [],
-                "choices": [],
-                "dead": False,
-                "ending": None,
-                "turn": state["turns"],
-            }
+        return Response(
+            game_id=game_id,
+            text="Game saved.",
+            location=state["player_location"],
+            inventory=state["inventory"],
+            pictures=[],
+            choices=[],
+            dead=False,
+            ending=None,
+            turn=state["turns"],
         )
     
     if text == "load":
         if not games[game_id]["save_slot"]:
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "game_id": game_id,
-                    "text": "No save slot available.",
-                    "location": state["player_location"],
-                    "inventory": state["inventory"],
-                    "pictures": [],
-                    "choices": [],
-                    "dead": False,
-                    "ending": None,
-                    "turn": state["turns"],
-                }
+            return Response(
+                game_id=game_id,
+                text="No save slot available.",
+                location=state["player_location"],
+                inventory=state["inventory"],
+                pictures=[],
+                choices=[],
+                dead=False,
+                ending=None,
+                turn=state["turns"],
             )
         state.update(games[game_id]["save_slot"]["state"])
-        return JSONResponse(
-            status_code=200,
-            content={
-                "game_id": game_id,
-                "text": "Game loaded.",
-                "location": state["player_location"],
-                "inventory": state["inventory"],
-                "pictures": [],
-                "choices": [],
-                "dead": False,
-                "ending": None,
-                "turn": state["turns"],
-            }
+        return Response(
+            game_id=game_id,
+            text="Game loaded.",
+            location=state["player_location"],
+            inventory=state["inventory"],
+            pictures=[],
+            choices=[],
+            dead=False,
+            ending=None,
+            turn=state["turns"],
         )
     
     # Handle continue/restart commands
     if text in ["continue_from_checkpoint", "restart_act_i"]:
-        return JSONResponse(
-            status_code=200,
-            content={
-                "game_id": game_id,
-                "text": "Command not processed yet.",
-                "location": state["player_location"],
-                "inventory": state["inventory"],
-                "pictures": [],
-                "choices": [],
-                "dead": False,
-                "ending": None,
-                "turn": state["turns"],
-            }
+        return Response(
+            game_id=game_id,
+            text="Command not processed yet.",
+            location=state["player_location"],
+            inventory=state["inventory"],
+            pictures=[],
+            choices=[],
+            dead=False,
+            ending=None,
+            turn=state["turns"],
         )
     
-    # Process game commands
-    # Default response for unknown commands
-    from content.loader import get_narrator
-    narrator = get_narrator()
-    game_text = narrator.get("unknown", "I'm not sure what you're trying to do. What do you want to do here?")
+    # Process game commands using rule-based parser
+    from game_engine.parser import parse_command
+    from game_engine.commands import CommandEngine
+    
+    parsed = parse_command(text)
+    engine = CommandEngine(state, {})
+    result = engine.execute_command(parsed)
+    
+    # Get pictures for current location
+    pictures = get_pictures()
+    current_location = state["player_location"]
+    location_pictures = [p for p in pictures if p.get("name") == current_location]
+    
+    response_pictures = []
+    for p in location_pictures:
+        response_pictures.append({
+            "name": p.get("name"),
+            "type": p.get("type"),
+            "size": p.get("size"),
+            "available": False,
+            "terminal": None,
+            "placeholder": f"[ picture: {p.get('name')} ]"
+        })
     
     # Move to next turn
     state["turns"] += 1
@@ -269,20 +267,28 @@ def process_command(game_id: str, payload: CommandPayload):
     })
     games[game_id]["updated_at"] = datetime.now().isoformat()
     
-    return JSONResponse(
-        status_code=200,
-        content={
-            "game_id": game_id,
-            "text": game_text,
-            "location": state["player_location"],
-            "inventory": state["inventory"],
-            "pictures": [],
-            "choices": [],
-            "dead": False,
-            "ending": None,
-            "turn": state["turns"],
-        }
+    return Response(
+        game_id=game_id,
+        text=result.get("text", ""),
+        location=result.get("location", state["player_location"]),
+        inventory=result.get("inventory", state["inventory"]),
+        pictures=response_pictures,
+        choices=result.get("choices", []),
+        dead=result.get("dead", False),
+        ending=None,
+        turn=state["turns"],
     )
+
+
+@app.post("/api/games/{game_id}/commands")
+def process_command(game_id: str, payload: CommandPayload):
+    if game_id not in games:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if not payload.text:
+        raise HTTPException(status_code=422, detail="Empty or missing text")
+    
+    return process_command_in_game(game_id, payload.text.lower().strip())
 
 
 @app.get("/api/pictures")
