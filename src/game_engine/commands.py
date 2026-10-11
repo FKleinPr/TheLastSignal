@@ -8,6 +8,7 @@ Integration: Called from api/commands.py to process player commands.
 
 from typing import Dict, Any, Optional, List
 from content.loader import get_locations, get_objects, get_characters, get_rules, get_narrator
+from game_engine.ambiguity import check_ambiguity, get_present_thing_names
 
 
 class CommandEngine:
@@ -32,6 +33,10 @@ class CommandEngine:
         if verb is None:
             # No intent detected - return unknown command message
             return self._handle_unknown_command()
+        
+        # Handle ambiguous response from parser
+        if verb == "ambiguous":
+            return self._handle_ambiguity(parsed)
         
         # Handle special commands
         if verb in ["save", "load"]:
@@ -96,6 +101,19 @@ class CommandEngine:
         
         return {
             "text": game_text,
+            "location": self.game_state["player_location"],
+            "inventory": self.game_state["inventory"],
+            "dead": self.game_state["dead"],
+            "choices": [],
+        }
+    
+    def _handle_ambiguity(self, parsed: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle ambiguous command response.
+        
+        Returns ambiguity message without changing state.
+        """
+        return {
+            "text": parsed.get("text", "Which option do you mean?"),
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
@@ -221,6 +239,12 @@ class CommandEngine:
         location_data = self.locations.get(current_location, {})
         characters_here = location_data.get("characters", [])
         
+        # Check for ambiguity first - only check character matches, not objects
+        narrator_ambiguous = self.narrator.get("ambiguous", "Which")
+        ambiguity_response = self._check_ambiguity_for_talk(target, current_location, characters_here, narrator_ambiguous)
+        if ambiguity_response:
+            return ambiguity_response
+        
         # Find matching character
         found = False
         for char_id in characters_here:
@@ -263,6 +287,32 @@ class CommandEngine:
             "dead": self.game_state["dead"],
             "choices": [],
         }
+    
+    def _check_ambiguity_for_talk(self, target: str, current_location: str, characters_here: list, narrator_ambiguous: str) -> Optional[Dict[str, Any]]:
+        """Check if talk target is ambiguous and return ambiguity response.
+        
+        Returns dict with ambiguity text or None if no ambiguity.
+        Does not modify state.
+        Only checks character matches, not objects.
+        """
+        # Check if target matches multiple present characters
+        matches = []
+        for char_id in characters_here:
+            if char_id == target or self._character_matches(char_id, target):
+                matches.append(char_id)
+        
+        if len(matches) > 1:
+            # Ambiguity found - return message with narrator.ambiguous text
+            options = ", ".join(sorted(matches))
+            return {
+                "text": f"{narrator_ambiguous} {target}? Options: {options}.",
+                "location": current_location,
+                "inventory": self.game_state["inventory"],
+                "dead": self.game_state["dead"],
+                "choices": [],
+            }
+        
+        return None
     
     def _handle_give(self, object_name: str, target: str) -> Dict[str, Any]:
         """Handle give command."""
@@ -525,4 +575,8 @@ class CommandEngine:
     
     def _character_matches(self, char_id: str, name: str) -> bool:
         """Check if character name matches character ID."""
-        return char_id == name
+        if char_id == name:
+            return True
+        char_data = self.characters.get(char_id, {})
+        names = char_data.get("names", [])
+        return name.lower() in names

@@ -234,12 +234,26 @@ def process_command_in_game(game_id: str, text: str) -> Response:
             turn=state["turns"],
         )
     
-    # Process game commands using rule-based parser
+    # Process game commands using LLM + rule-based parser
     from game_engine.parser import parse_command
     from game_engine.commands import CommandEngine
     
-    parsed = parse_command(text)
-    engine = CommandEngine(state, {})
+    # Load content for parser
+    from content.loader import get_locations, get_objects, get_characters, get_rules, get_deaths, get_endings, get_clues, get_narrator, get_pictures
+    content = {
+        "locations": get_locations(),
+        "objects": get_objects(),
+        "characters": get_characters(),
+        "rules": get_rules(),
+        "deaths": get_deaths(),
+        "endings": get_endings(),
+        "clues": get_clues(),
+        "narrator": get_narrator(),
+        "pictures": get_pictures(),
+    }
+    
+    parsed = parse_command(text, state, content)
+    engine = CommandEngine(state, content)
     result = engine.execute_command(parsed)
     
     # Get pictures for current location

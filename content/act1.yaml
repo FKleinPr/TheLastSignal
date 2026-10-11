@@ -43,6 +43,7 @@ locations:
     objects: []
     characters:
       - merchant-jex
+      - child-echo
     
   edge-of-town:
     description: "A broken fence marks the escape point. Beyond the fence, the sand stretches to the horizon. The wind picks up here, carrying the hum of the dish."
@@ -142,6 +143,10 @@ objects:
 
 characters:
   priest-voa:
+    names:
+      - priest-voa
+      - priest
+      - voa
     location: sanctum
     faction: Tribal
     look: "Guard with robe, touches hull when walking"
@@ -154,6 +159,11 @@ characters:
       - "I've seen what happens to people who wake the dead. Don't be one of them."
       
   child-echo:
+    names:
+      - child-echo
+      - echo
+      - child
+      - local
     location: scrap-market
     faction: Tribal
     look: "Child listening to sand, eyes closed when humming"
@@ -166,6 +176,12 @@ characters:
       - "I heard it calling before the sand came. Before the ribs grew."
       
   merchant-jex:
+    names:
+      - merchant-jex
+      - jex
+      - merchant
+      - trader
+      - local
     location: scrap-market
     faction: Tribal
     look: "Trader smelling items"
@@ -178,6 +194,10 @@ characters:
       - "The Silencers will come for you. They always come for what they want."
       
   archivist-lira:
+    names:
+      - archivist-lira
+      - archivist
+      - lira
     location: archives
     faction: Awakeners
     look: "Scholar reading glowing slates"
@@ -190,6 +210,10 @@ characters:
       - "The Silencers don't want to wake it. They want to control it. Don't trust them."
       
   silencer-leader:
+    names:
+      - silencer-leader
+      - silencer
+      - leader
     location: control-center
     faction: Silencers
     look: "Silencer in dark uniform, hand on weapon"
