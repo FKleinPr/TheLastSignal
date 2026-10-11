@@ -49,6 +49,13 @@ class CommandPayload(BaseModel):
     text: str
 
 
+# Import and include test router
+from api.test import router as test_router, set_games_store
+
+app.include_router(test_router)
+set_games_store(games)
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -395,13 +402,6 @@ def get_pictures():
             "description": "Bottle of blue liquid, god's blood.",
         },
     ]
-
-
-@app.post("/api/test/reset")
-def reset_test():
-    global games
-    games = {}
-    return {"status": "ok"}
 
 
 if __name__ == "__main__":
