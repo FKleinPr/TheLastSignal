@@ -93,22 +93,23 @@ def reset_dust_timer(game_state: dict) -> None:
 
 
 def check_all_timers(game_state: dict, previous_location: str = "") -> dict:
-    """Check all active timers and return death warnings.
-    
-    This is the single call point for timer checks - no duplicate calls.
-    Returns dict with:
-    - text: death or warning text if triggered
-    - dead: True if any timer triggered death
+    """Check all timers after a command; the single call point (main.py).
+
+    The core choice comes first: an ending wins over the death timers (test review 1, P-17). Then death-dust,
+    death-humming and death-faction. Returns {"text", "dead", "ending"} as far as triggered; warnings are joined.
     """
-    result = {}
-    
-    # Check dust timer - this is the only timer check, no duplicate calls
-    dust_result = update_dust_timer(game_state, previous_location)
-    
-    if dust_result.get("text"):
-        result["text"] = dust_result.get("text", "")
-    
-    if dust_result.get("dead"):
-        result["dead"] = True
-    
-    return result
+    from game_engine.endings import check_core_choice, check_death_faction, check_death_humming
+
+    texts = []
+    r = check_core_choice(game_state, previous_location)
+    if r.get("ending") or r.get("dead"):
+        return r
+    if r.get("text"):
+        texts.append(r["text"])
+    for check in (update_dust_timer, check_death_humming, check_death_faction):
+        r = check(game_state, previous_location)
+        if r.get("dead"):
+            return {"dead": True, "text": r.get("text", "")}
+        if r.get("text"):
+            texts.append(r["text"])
+    return {"text": " ".join(texts)} if texts else {}

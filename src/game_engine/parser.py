@@ -339,7 +339,8 @@ def _parse_rule_based(text: str, game_state: Optional[dict] = None) -> Optional[
     if use_match:
         object_name = use_match.group(1).strip()
         target_name = use_match.group(2).strip()
-        if object_name in get_valid_nouns(game_state, current_location) and target_name in get_valid_nouns(game_state, current_location):
+        valid = get_valid_nouns(game_state, current_location) | {"door", "gate", "lock"}  # the sanctum door
+        if object_name in valid and target_name in valid:
             return {"verb": "use", "object": object_name, "target": target_name}
     
     # Talk commands: "talk to Y"

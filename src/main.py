@@ -23,6 +23,9 @@ validate_content()
 
 games: dict[str, dict] = {}
 
+# Counters of the core choice and the death timers (T-010); cleared by continue and restart
+TIMER_KEYS = ("core_choice", "choice_count", "choice_made_turn", "humming_count", "refusal_count", "dust_count")
+
 app = FastAPI(title="The Last Signal")
 
 
@@ -164,6 +167,21 @@ def process_command_in_game(game_id: str, text: str) -> Response:
     
     state = games[game_id]["state"]
     
+    # Act I has ended: every command except "restart" answers the ending again (proxy edit P-21, T-010)
+    if state.get("ending") and text.strip().lower() != "restart":
+        from content.loader import get_endings
+        return Response(
+            game_id=game_id,
+            text=get_endings().get(state["ending"], {}).get("text", ""),
+            location=state["player_location"],
+            inventory=state["inventory"],
+            pictures=[],
+            choices=[],
+            dead=False,
+            ending=state["ending"],
+            turn=state["turns"],
+        )
+    
     # Handle save/load commands first (before dead check)
     if text == "save":
         games[game_id]["save_slot"] = {
@@ -240,6 +258,8 @@ def process_command_in_game(game_id: str, text: str) -> Response:
             state["dead"] = False
             state["turns"] = recovery_result.get("turn", state["turns"])
             state["last_checkpoint"] = None
+            for key in TIMER_KEYS:  # the checkpoint lies before the core choice and the death timers
+                state.pop(key, None)
             
             return Response(
                 game_id=game_id,
@@ -267,6 +287,9 @@ def process_command_in_game(game_id: str, text: str) -> Response:
             state["turns"] = 0
             state["ending"] = None
             state["last_checkpoint"] = None
+            state["relationships"] = {}
+            for key in TIMER_KEYS:
+                state.pop(key, None)
             
             return Response(
                 game_id=game_id,
@@ -388,7 +411,7 @@ def process_command_in_game(game_id: str, text: str) -> Response:
         pictures=response_pictures,
         choices=result.get("choices", []),
         dead=result.get("dead", False),
-        ending=None,
+        ending=state.get("ending"),
         turn=state["turns"],
     )
 

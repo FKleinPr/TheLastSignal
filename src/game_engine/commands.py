@@ -12,6 +12,8 @@ from game_engine.ambiguity import check_ambiguity, get_present_thing_names
 from game_engine.characters import CharacterInteraction
 from game_engine.objects import ObjectInteraction
 from game_engine.clues import discover_clue, check_location_clue, check_object_clue, check_character_clue
+from game_engine.problems import is_gate_locked, solve_gate_with_pick, solve_gate_with_key, check_gate_exit_blocked
+from game_engine.endings import set_core_choice
 
 
 class CommandEngine:
@@ -31,7 +33,7 @@ class CommandEngine:
     def execute_command(self, parsed: Dict[str, Any]) -> Dict[str, Any]:
         """Execute parsed command and return response.
         
-        Returns dict with: text, location, inventory, dead, choices, pictures
+        Returns dict with: text, location, inventory, dead, choices, pictures, ending
         """
         verb = parsed.get("verb")
         
@@ -103,6 +105,17 @@ class CommandEngine:
         # No matching rule - return impossible action
         return self._handle_impossible_action()
     
+    def _result(self, text: str) -> Dict[str, Any]:
+        """A response that leaves location and death state as they are."""
+        return {
+            "text": text,
+            "location": self.game_state["player_location"],
+            "inventory": self.game_state["inventory"],
+            "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
+            "choices": [],
+        }
+
     def _handle_unknown_command(self) -> Dict[str, Any]:
         """Handle commands with no intent detected."""
         game_text = self.narrator.get("unknown", "I'm not sure what you're trying to do. What do you want to do here?")
@@ -112,6 +125,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -125,6 +139,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -137,6 +152,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -163,19 +179,34 @@ class CommandEngine:
                 "location": current_location,
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
-        # Check if blocked
+        # Check if blocked (dynamic blocking for gate-locked)
         if exit_data and exit_data.get("blocked"):
-            blocked_text = self.narrator.get("blocked", "locked")
-            return {
-                "text": f"The exit to {target_location} is {blocked_text}.",
-                "location": current_location,
-                "inventory": self.game_state["inventory"],
-                "dead": self.game_state["dead"],
-                "choices": [],
-            }
+            # Check if this is the gate-locked exit from sanctum
+            if current_location == "sanctum" and direction == "east":
+                if is_gate_locked(self.game_state):
+                    blocked_text = self.narrator.get("blocked", "locked")
+                    return {
+                        "text": f"The exit to {target_location} is {blocked_text}.",
+                        "location": current_location,
+                        "inventory": self.game_state["inventory"],
+                        "dead": self.game_state["dead"],
+                        "ending": self.game_state.get("ending"),
+                        "choices": [],
+                    }
+            elif exit_data.get("blocked"):
+                blocked_text = self.narrator.get("blocked", "locked")
+                return {
+                    "text": f"The exit to {target_location} is {blocked_text}.",
+                    "location": current_location,
+                    "inventory": self.game_state["inventory"],
+                    "dead": self.game_state["dead"],
+                    "ending": self.game_state.get("ending"),
+                    "choices": [],
+                }
         
         # Move to target
         self.game_state["player_location"] = target_location
@@ -194,6 +225,7 @@ class CommandEngine:
             "location": target_location,
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -212,6 +244,7 @@ class CommandEngine:
             discover_clue(location_clue_id, self.game_state)
         
         # Add clue text to description if discovered
+        from content.loader import get_clues
         clues = get_clues()
         if location_clue_id and location_clue_id in clues:
             clue_text = clues[location_clue_id].get("text", "")
@@ -222,6 +255,7 @@ class CommandEngine:
             "location": current_location,
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -252,6 +286,7 @@ class CommandEngine:
                 "location": current_location,
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -264,6 +299,7 @@ class CommandEngine:
             "location": current_location,
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -277,6 +313,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -317,6 +354,7 @@ class CommandEngine:
                     "location": current_location,
                     "inventory": self.game_state["inventory"],
                     "dead": self.game_state["dead"],
+                    "ending": self.game_state.get("ending"),
                     "choices": [],
                 }
         
@@ -332,6 +370,7 @@ class CommandEngine:
                 "location": current_location,
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -340,6 +379,7 @@ class CommandEngine:
             "location": current_location,
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -364,6 +404,7 @@ class CommandEngine:
                 "location": current_location,
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -378,6 +419,7 @@ class CommandEngine:
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -390,9 +432,26 @@ class CommandEngine:
         for char_id in characters_here:
             if char_id == target or self._character_matches(char_id, target):
                 found = True
+                inventory = self.game_state["inventory"]
+                # gate-locked: merchant-jex trades the key for the priest's coolant bottle and remembers the deal
+                if object_name == "coolant-bottle" and char_id == "merchant-jex":
+                    inventory.remove("coolant-bottle")
+                    if "key" not in inventory:
+                        inventory.append("key")
+                    self.character_interaction.update_relationship("merchant-jex", -1)
+                    return self._result("I'll give you the key for that bottle. "
+                                        "You can pick the lock yourself—that takes skill.")
+                # core-wake: giving the core is the choice for a faction (the endings count from this command)
+                choice = {("archivist-lira", "archives"): "awakeners",
+                          ("silencer-leader", "control-center"): "silencers"}.get((char_id, current_location))
+                if object_name == "core" and choice:
+                    inventory.remove("core")
+                    set_core_choice(self.game_state, choice)
+                    self.game_state["choice_made_turn"] = True
+                    return self._result(f"You give the core to {char_id}.")
                 # Remove from inventory
-                if object_name in self.game_state["inventory"]:
-                    self.game_state["inventory"].remove(object_name)
+                if object_name in inventory:
+                    inventory.remove(object_name)
                 
                 # Update relationship
                 self.character_interaction.update_relationship(char_id, 1)
@@ -402,6 +461,7 @@ class CommandEngine:
                     "location": current_location,
                     "inventory": self.game_state["inventory"],
                     "dead": self.game_state["dead"],
+                    "ending": self.game_state.get("ending"),
                     "choices": [],
                 }
         
@@ -411,6 +471,7 @@ class CommandEngine:
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -419,6 +480,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -431,6 +493,7 @@ class CommandEngine:
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -457,6 +520,7 @@ class CommandEngine:
                         "location": current_location,
                         "inventory": self.game_state["inventory"],
                         "dead": self.game_state["dead"],
+                        "ending": self.game_state.get("ending"),
                         "choices": [],
                     }
                 
@@ -477,6 +541,7 @@ class CommandEngine:
                     "location": current_location,
                     "inventory": self.game_state["inventory"],
                     "dead": self.game_state["dead"],
+                    "ending": self.game_state.get("ending"),
                     "choices": [],
                 }
         
@@ -486,6 +551,7 @@ class CommandEngine:
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -494,6 +560,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -506,6 +573,7 @@ class CommandEngine:
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -513,6 +581,10 @@ class CommandEngine:
         current_location = self.game_state["player_location"]
         location_data = self.locations.get(current_location, {})
         
+        # gate-locked: the key opens the door from sanctum to control-center
+        if object_name == "key" and target in ("door", "gate", "lock"):
+            return self._result(solve_gate_with_key(self.game_state, current_location)["text"])
+
         # Check if target is a character or location
         characters_here = location_data.get("characters", [])
         found = False
@@ -525,6 +597,7 @@ class CommandEngine:
                     "location": current_location,
                     "inventory": self.game_state["inventory"],
                     "dead": self.game_state["dead"],
+                    "ending": self.game_state.get("ending"),
                     "choices": [],
                 }
         
@@ -534,6 +607,7 @@ class CommandEngine:
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -542,6 +616,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -550,35 +625,17 @@ class CommandEngine:
         # Check if player has lock-pick
         if "lock-pick" not in self.game_state["inventory"]:
             return {
-                "text": "You don't have a lock-pick to use.",
+                "text": "That's not happening here. Try something less ambitious.",
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
-        # Check if we're in sanctum (where the locked door is)
-        if self.game_state["player_location"] != "sanctum":
-            return {
-                "text": "There's no locked door here to pick.",
-                "location": self.game_state["player_location"],
-                "inventory": self.game_state["inventory"],
-                "dead": self.game_state["dead"],
-                "choices": [],
-            }
-        
-        # Unlock the exit to control-center
-        # This is a special case - we'll mark it in game state
-        self.game_state["flags"].append("gate-locked-solved")
-        
-        return {
-            "text": "You pick the lock. The door to control-center clicks open.",
-            "location": self.game_state["player_location"],
-            "inventory": self.game_state["inventory"],
-            "dead": self.game_state["dead"],
-            "choices": [],
-        }
-    
+        # gate-locked: picking the lock opens the door and lowers silencer-leader (they hear it)
+        return self._result(solve_gate_with_pick(self.game_state, self.game_state["player_location"])["text"])
+
     def _handle_wait(self) -> Dict[str, Any]:
         """Handle wait command."""
         return {
@@ -586,6 +643,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -597,6 +655,7 @@ class CommandEngine:
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -606,6 +665,7 @@ class CommandEngine:
                 "location": self.game_state["player_location"],
                 "inventory": self.game_state["inventory"],
                 "dead": self.game_state["dead"],
+                "ending": self.game_state.get("ending"),
                 "choices": [],
             }
         
@@ -614,6 +674,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
@@ -624,6 +685,7 @@ class CommandEngine:
             "location": self.game_state["player_location"],
             "inventory": self.game_state["inventory"],
             "dead": self.game_state["dead"],
+            "ending": self.game_state.get("ending"),
             "choices": [],
         }
     
