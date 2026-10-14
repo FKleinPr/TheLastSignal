@@ -106,21 +106,19 @@ def new_game():
     start = get_start()
     opening_text = start.get("text", "The red sand presses against your boots.")
     
-    # Get pictures for current location
-    pictures = get_pictures()
-    current_location = "bone-yard"
-    location_pictures = [p for p in pictures if p.get("name") == current_location]
+    # Get pictures for current location using pictures module
+    from game_engine.pictures import build_response_pictures, get_picture_list_from_content
     
-    response_pictures = []
-    for p in location_pictures:
-        response_pictures.append({
-            "name": p.get("name"),
-            "type": p.get("type"),
-            "size": p.get("size"),
-            "available": False,
-            "terminal": None,
-            "placeholder": f"[ picture: {p.get('name')} ]"
-        })
+    pictures_list = get_picture_list_from_content()
+    current_location = "bone-yard"
+    
+    # Get characters present in current location
+    locations = get_locations()
+    location_data = locations.get(current_location, {})
+    characters_here = location_data.get("characters", [])
+    
+    # Build complete picture list with location, characters, and inventory items
+    response_pictures = build_response_pictures(current_location, [], characters_here, pictures_list)
     
     response = Response(
         game_id=game_id,
@@ -378,21 +376,19 @@ def process_command_in_game(game_id: str, text: str) -> Response:
         # Add warning text to result text
         result["text"] = result.get("text", "") + " " + death_result.get("text", "")
     
-    # Get pictures for current location
-    pictures = get_pictures()
-    current_location = state["player_location"]
-    location_pictures = [p for p in pictures if p.get("name") == current_location]
+    # Get pictures for current location using pictures module
+    from game_engine.pictures import build_response_pictures, get_picture_list_from_content
     
-    response_pictures = []
-    for p in location_pictures:
-        response_pictures.append({
-            "name": p.get("name"),
-            "type": p.get("type"),
-            "size": p.get("size"),
-            "available": False,
-            "terminal": None,
-            "placeholder": f"[ picture: {p.get('name')} ]"
-        })
+    pictures_list = get_picture_list_from_content()
+    current_location = state["player_location"]
+    
+    # Get characters present in current location
+    locations = get_locations()
+    location_data = locations.get(current_location, {})
+    characters_here = location_data.get("characters", [])
+    
+    # Build complete picture list with location, characters, and inventory items
+    response_pictures = build_response_pictures(current_location, state["inventory"], characters_here, pictures_list)
     
     # Move to next turn
     state["turns"] += 1

@@ -4,7 +4,7 @@ import os
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 
 # In-memory storage for pictures
 _pictures: dict[str, str] = {}
@@ -21,7 +21,7 @@ def get_asset_terminal(asset_id: str):
         raise HTTPException(status_code=503, detail="Stub Generator is down")
     
     if asset_id in _pictures:
-        return _pictures[asset_id]
+        return Response(content=_pictures[asset_id], media_type="text/plain")
     
     raise HTTPException(status_code=404, detail=f"Picture {asset_id} not found")
 
