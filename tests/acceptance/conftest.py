@@ -1,9 +1,19 @@
-"""Shared harness for The Last Signal acceptance tests (rewritten after test review 1).
+"""Shared harness for The Last Signal acceptance tests (updated for CR-001).
 
 Tests talk to the game only through the `api` fixture; the base URL comes from TEST_BASE_URL. Every test starts
 with POST /api/test/reset (autouse fixture): it deletes all games and resets both stubs, so the stub model has no
 script (it answers {"verb": null}) and the stub generator holds no pictures. Game facts (texts, routes, the
-picture list) are in game_data.py.
+picture list, character names, core reactions) are in game_data.py.
+
+CR-001 updates:
+- The terminal client (`client/play.py`) is run as a subprocess with a temporary directory for `.last-signal-game`.
+- The client handles `--url` (default `http://127.0.0.1:18003`) and `--new`.
+- The client writes the game id to `.last-signal-game` and continues if it exists.
+- The client handles `dead`/`ending` flags and prints pictures (terminal vs placeholder).
+- The client handles `help` and `inventory` locally.
+- The README.md must exist, have 1500+ chars, and contain specific phrases (`docker compose up`, `client/play.py`, `continue`, `restart`).
+- The parser accepts character names/synonyms (e.g., `jex`, `merchant`).
+- The core choice triggers specific reaction texts (Awakeners, Silencers, Flee).
 """
 import os
 
@@ -109,3 +119,12 @@ def reset_state(api):
 def game(api) -> dict:
     """A new game: {"game_id": ..., "response": <Response of POST /api/games>}."""
     return api.new_game()
+
+
+def readme_content() -> str:
+    """Read the repository README.md for AC-015 checks."""
+    readme_path = os.path.join(os.path.dirname(__file__), "..", "..", "README.md")
+    if os.path.exists(readme_path):
+        with open(readme_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return ""

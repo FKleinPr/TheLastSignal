@@ -1,5 +1,12 @@
 """Game facts for the acceptance tests: spec section 9, design 6.7/6.8 and the decisions of test review 1.
-Tests import texts, routes and the picture list from here instead of writing them out."""
+Tests import texts, routes and the picture list from here instead of writing them out.
+
+CR-001 updates:
+- Added CHARACTER_NAMES mapping for synonyms (e.g., `jex`, `merchant`).
+- Added CORE_REACTIONS with specific reaction texts for the core choice (Awakeners, Silencers, Flee).
+- Added CLIENT_OUTPUT for client-generated strings (Goodbye, Continuing your game, etc.).
+- Updated TEXT to include core reaction texts and client output strings.
+"""
 
 LOCATIONS = ["bone-yard", "watchtower", "scrap-market", "edge-of-town", "archives", "sanctum",
              "control-center", "deep-ribs"]
@@ -40,6 +47,31 @@ PICTURES = {
     "coolant-bottle": ("item", "16x16", "Bottle of blue liquid, god's blood."),
 }
 
+# Character names/synonyms mapping (CR-001, FR-030).
+# Updated per review: correct order and additions (local, trader, etc.)
+CHARACTER_NAMES = {
+    "priest-voa": ["priest-voa", "priest", "voa"],
+    "child-echo": ["child-echo", "echo", "child", "local"],
+    "merchant-jex": ["merchant-jex", "jex", "merchant", "trader", "local"],
+    "archivist-lira": ["archivist-lira", "archivist", "lira"],
+    "silencer-leader": ["silencer-leader", "silencer", "leader"],
+}
+
+# Core choice reaction texts (CR-001, FR-032, Spec 9.6).
+CORE_REACTIONS = {
+    "awakeners": "Lira's hands shake as she takes the core. \"It's waking. The town won't survive this - get to the edge of town, or into the deep ribs. Now.\"",
+    "silencers": "The Silencer-Leader snatches the core. \"Now get out of my sight. When the ribs start moving, be somewhere safe - the deep ribs, or beyond the fence.\"",
+    "flee": "The fence creaks behind you. The hum rises - the ship knows you are leaving. Stay here, and in a few moments you're gone.",
+}
+
+# Client output strings (CR-001, FR-025, FR-026, FR-027, FR-028).
+CLIENT_OUTPUT = {
+    "continuing_your_game": "Continuing your game.",
+    "goodbye": "Goodbye.",
+    "cannot_reach": "Cannot reach the game server at {url}.",
+    "act_i_complete": "ACT I COMPLETE",
+}
+
 TEXT = {
     "opening": "The red sand presses against your boots.",
     "signal": "The ship has woken up, and it knows you're here.",
@@ -66,6 +98,10 @@ TEXT = {
     "ending-awakeners": "The Awakeners took the core and woke the ship.",
     "ending-silencers": "The Silencers took the core and controlled the ship.",
     "ending-escape": "You ran to the edge of town and fled before the ship destroyed everything.",
+    # Core choice reaction texts (CR-001, Spec 9.6)
+    "awakeners_reaction": CORE_REACTIONS["awakeners"],
+    "silencers_reaction": CORE_REACTIONS["silencers"],
+    "flee_reaction": CORE_REACTIONS["flee"],
 }
 
 DEAD_CHOICES = ["continue", "restart"]
