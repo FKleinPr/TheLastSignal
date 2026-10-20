@@ -66,6 +66,13 @@ from api.test import router as test_router, set_games_store
 app.include_router(test_router)
 set_games_store(games)
 
+# Load core_choice from content for reaction texts
+from content.loader import get_core_choice
+
+def get_core_choice_from_content() -> list[dict]:
+    """Get core_choice section from content."""
+    return get_core_choice()
+
 
 @app.get("/api/health")
 def health():
@@ -306,7 +313,7 @@ def process_command_in_game(game_id: str, text: str) -> Response:
     from game_engine.commands import CommandEngine
     
     # Load content for parser
-    from content.loader import get_locations, get_objects, get_characters, get_rules, get_deaths, get_endings, get_clues, get_narrator, get_pictures
+    from content.loader import get_locations, get_objects, get_characters, get_rules, get_deaths, get_endings, get_clues, get_narrator, get_pictures, get_core_choice
     content = {
         "locations": get_locations(),
         "objects": get_objects(),
@@ -317,6 +324,7 @@ def process_command_in_game(game_id: str, text: str) -> Response:
         "clues": get_clues(),
         "narrator": get_narrator(),
         "pictures": get_pictures(),
+        "core_choice": get_core_choice(),
     }
     
     # Track previous location before executing command (for dust timer)

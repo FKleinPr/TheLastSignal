@@ -489,3 +489,16 @@ pictures:
     type: item
     size: 16x16
     description: "Bottle of blue liquid, god's blood."
+
+core_choice:
+  - id: awakeners
+    target: archivist-lira
+    location: archives
+    text: "Lira's hands shake as she takes the core. \"It's waking. The town won't survive this - get to the edge of town, or into the deep ribs. Now.\""
+  - id: silencers
+    target: silencer-leader
+    location: control-center
+    text: "The Silencer-Leader snatches the core. \"Now get out of my sight. When the ribs start moving, be somewhere safe - the deep ribs, or beyond the fence.\""
+  - id: flee
+    location: edge-of-town
+    text: "The fence creaks behind you. The hum rises - the ship knows you are leaving. Stay here, and in a few moments you're gone."

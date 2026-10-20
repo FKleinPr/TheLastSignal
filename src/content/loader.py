@@ -100,3 +100,9 @@ def get_timers() -> list[dict]:
     """Get timers list from content."""
     content = load_content()
     return content.get("timers", [])
+
+
+def get_core_choice() -> list[dict]:
+    """Get core_choice section from content."""
+    content = load_content()
+    return content.get("core_choice", [])

@@ -215,6 +215,20 @@ class CommandEngine:
         target_location_data = self.locations.get(target_location, {})
         description = target_location_data.get("description", "")
         
+        # Check for flee choice reaction when entering edge-of-town with core
+        inventory = self.game_state.get("inventory", [])
+        if target_location == "edge-of-town" and "core" in inventory:
+            from content.loader import get_core_choice
+            core_choice_list = get_core_choice()
+            reaction_text = ""
+            for choice_data in core_choice_list:
+                if choice_data.get("location") == "edge-of-town":
+                    reaction_text = choice_data.get("text", "")
+                    break
+            
+            if reaction_text:
+                description = f"{description} {reaction_text}"
+        
         # Check for location clue when entering new location
         location_clue_id = check_location_clue(target_location)
         if location_clue_id:
@@ -448,7 +462,21 @@ class CommandEngine:
                     inventory.remove("core")
                     set_core_choice(self.game_state, choice)
                     self.game_state["choice_made_turn"] = True
+                    
+                    # Get reaction text from core_choice content
+                    from content.loader import get_core_choice
+                    core_choice_list = get_core_choice()
+                    reaction_text = ""
+                    for choice_data in core_choice_list:
+                        if choice_data.get("target") == char_id and choice_data.get("location") == current_location:
+                            reaction_text = choice_data.get("text", "")
+                            break
+                    
+                    if reaction_text:
+                        return self._result(reaction_text)
+                    
                     return self._result(f"You give the core to {char_id}.")
+                
                 # Remove from inventory
                 if object_name in inventory:
                     inventory.remove(object_name)
