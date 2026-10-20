@@ -51,10 +51,13 @@ def get_valid_nouns(game_state: Optional[dict] = None, current_location: Optiona
             for name in obj_data["names"]:
                 valid.add(name.lower())
     
-    # Get characters
+    # Get characters - add all character names/synonyms (case-insensitive)
     characters = get_characters()
-    for char_id in characters.keys():
+    for char_id, char_data in characters.items():
         valid.add(char_id)
+        if "names" in char_data:
+            for name in char_data["names"]:
+                valid.add(name.lower())
     
     # Add directions if game_state and current_location provided
     if game_state and current_location:
@@ -123,15 +126,15 @@ def _check_entity_present(entity_type: str, entity_name: str, game_state: dict, 
         characters_here = location_data.get("characters", [])
         characters = get_characters()
         
-        # Check if character ID matches
-        if entity_name in characters_here:
-            return True
+        # Normalize entity_name: remove optional "the", lower case
+        normalized_name = entity_name.lower().strip()
         
-        # Check if entity_name is a synonym for a character in location
+        # Check if entity_name matches any character's names
         for char_id in characters_here:
             if char_id in characters:
                 char_names = characters[char_id].get("names", [])
-                if entity_name.lower() in [names.lower() for names in char_names]:
+                # Check if normalized_name matches any of the character's names (case-insensitive)
+                if normalized_name in [names.lower() for names in char_names]:
                     return True
         
         return False
@@ -273,6 +276,8 @@ def _parse_rule_based(text: str, game_state: Optional[dict] = None) -> Optional[
     """Parse command using rule-based approach (when LLM unavailable or invalid)."""
     if not text:
         return None
+    # An article before a name is optional: "talk to the merchant" is "talk to merchant" (CR-001)
+    text = re.sub(r"\bthe\s+", "", text)
     
     # Get current location for context
     current_location = None
@@ -343,7 +348,7 @@ def _parse_rule_based(text: str, game_state: Optional[dict] = None) -> Optional[
         if object_name in valid and target_name in valid:
             return {"verb": "use", "object": object_name, "target": target_name}
     
-    # Talk commands: "talk to Y"
+    # Talk commands: "talk to Y" (accept synonyms)
     talk_match = re.match(r"talk\s+to\s+(\S+)", text)
     if talk_match:
         target_name = talk_match.group(1).strip()
