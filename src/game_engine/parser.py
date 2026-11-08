@@ -87,7 +87,12 @@ def _check_entity_present(entity_type: str, entity_name: str, game_state: dict, 
     For "give"/"show"/"use" commands: object must be in inventory, target must be in current location.
     
     Returns True if entity is present, False otherwise.
+    
+    CR-004: entity_name can be a name or synonym, not just ID.
     """
+    # Normalize entity_name: remove optional "the", lowercase
+    normalized_name = _normalize_name(entity_name)
+    
     if entity_type == "object":
         # Check if object is in current location or inventory
         location_data = get_locations().get(current_location, {})
@@ -95,25 +100,25 @@ def _check_entity_present(entity_type: str, entity_name: str, game_state: dict, 
         objects = get_objects()
         
         # Check if object ID matches
-        if entity_name in objects_in_location:
+        if normalized_name in objects_in_location:
             return True
         
         # Check if entity_name is a synonym for an object in location
         for obj_id in objects_in_location:
             if obj_id in objects:
-                obj_names = objects[obj_id].get("names", [])
-                if entity_name.lower() in [names.lower() for names in obj_names]:
+                obj_names = [n.lower() for n in objects[obj_id].get("names", [])]
+                if normalized_name in obj_names:
                     return True
         
         # Check if object is in inventory
-        if entity_name in game_state.get("inventory", []):
+        if normalized_name in game_state.get("inventory", []):
             return True
         
         # Check if entity_name is a synonym for an object in inventory
         for inv_obj_id in game_state.get("inventory", []):
             if inv_obj_id in objects:
-                obj_names = objects[inv_obj_id].get("names", [])
-                if entity_name.lower() in [names.lower() for names in obj_names]:
+                obj_names = [n.lower() for n in objects[inv_obj_id].get("names", [])]
+                if normalized_name in obj_names:
                     return True
         
         return False
@@ -123,7 +128,7 @@ def _check_entity_present(entity_type: str, entity_name: str, game_state: dict, 
         location_data = get_locations().get(current_location, {})
         exits = location_data.get("exits", [])
         for exit_info in exits:
-            if exit_info.get("direction") == entity_name:
+            if exit_info.get("direction", "").lower() == normalized_name:
                 return True
         return False
     
@@ -133,7 +138,7 @@ def _check_entity_present(entity_type: str, entity_name: str, game_state: dict, 
         exits = location_data.get("exits", [])
         for exit_info in exits:
             target = exit_info.get("target")
-            if target and target == entity_name:
+            if target and target.lower() == normalized_name:
                 return True
         return False
     
@@ -143,15 +148,11 @@ def _check_entity_present(entity_type: str, entity_name: str, game_state: dict, 
         characters_here = location_data.get("characters", [])
         characters = get_characters()
         
-        # Normalize entity_name: remove optional "the", lower case
-        normalized_name = entity_name.lower().strip()
-        
         # Check if entity_name matches any character's names
         for char_id in characters_here:
             if char_id in characters:
-                char_names = characters[char_id].get("names", [])
-                # Check if normalized_name matches any of the character's names (case-insensitive)
-                if normalized_name in [names.lower() for names in char_names]:
+                char_names = [n.lower() for n in characters[char_id].get("names", [])]
+                if normalized_name in char_names:
                     return True
         
         return False
@@ -159,8 +160,74 @@ def _check_entity_present(entity_type: str, entity_name: str, game_state: dict, 
     return False
 
 
+def _resolve_name_to_id(entity_type: str, entity_name: str, game_state: dict, current_location: str) -> Optional[str]:
+    """Resolve a name or synonym to an entity ID.
+    
+    CR-004: A name or synonym in object or target is mapped to the id of the thing present.
+    Returns the entity ID if found, None otherwise.
+    """
+    normalized_name = _normalize_name(entity_name)
+    
+    if entity_type == "object":
+        # Check objects in current location
+        location_data = get_locations().get(current_location, {})
+        objects_in_location = location_data.get("objects", [])
+        objects = get_objects()
+        
+        for obj_id in objects_in_location:
+            if obj_id in objects:
+                obj_names = [n.lower() for n in objects[obj_id].get("names", [])]
+                if normalized_name in obj_names:
+                    return obj_id
+        
+        # Check objects in inventory
+        for inv_obj_id in game_state.get("inventory", []):
+            if inv_obj_id in objects:
+                obj_names = [n.lower() for n in objects[inv_obj_id].get("names", [])]
+                if normalized_name in obj_names:
+                    return inv_obj_id
+        
+        return None
+    
+    elif entity_type == "character":
+        # Check characters in current location
+        location_data = get_locations().get(current_location, {})
+        characters_here = location_data.get("characters", [])
+        characters = get_characters()
+        
+        for char_id in characters_here:
+            if char_id in characters:
+                char_names = [n.lower() for n in characters[char_id].get("names", [])]
+                if normalized_name in char_names:
+                    return char_id
+        
+        return None
+    
+    elif entity_type == "location":
+        # Check location ID is reachable from current location
+        location_data = get_locations().get(current_location, {})
+        exits = location_data.get("exits", [])
+        
+        for exit_info in exits:
+            target = exit_info.get("target")
+            if target and target.lower() == normalized_name:
+                return target
+        
+        return None
+    
+    return None
+
+
+def _normalize_name(name: str) -> str:
+    """Normalize a name: remove optional "the" prefix, lowercase."""
+    return re.sub(r"\bthe\s+", "", name.lower()).strip()
+
+
 def _validate_llm_intent(intent: Dict[str, Any], game_state: dict, current_location: str) -> bool:
     """Validate LLM intent: verb must be non-null and valid, named entities must be present.
+    
+    CR-004: For talk and ask, character may be in object or target. For go, direction or destination may be in object or target.
+    A name or synonym in object or target is mapped to the id of the thing present.
     
     Returns True if intent is valid, False otherwise (fall back to rule-based).
     """
@@ -175,32 +242,55 @@ def _validate_llm_intent(intent: Dict[str, Any], game_state: dict, current_locat
     if verb not in valid_verbs:
         return False
     
-    # Check named entities are present
+    # Normalize entity names (CR-004: remove "the" prefix, lowercase)
+    def _normalize(name):
+        return _normalize_name(name) if name else ""
+    
+    # Check named entities are present (CR-004: object and target can both contain the entity)
     if "object" in intent and intent.get("object") is not None:
-        object_name = intent.get("object", "")
-        if not isinstance(object_name, str) or object_name.strip() == "":
+        object_value = intent.get("object")
+        if not isinstance(object_value, str) or object_value.strip() == "":
             return False
         
-        # For "go" commands, object can be a direction OR a location ID
+        # For "go" commands, object can be a direction OR a location ID (CR-004)
         if verb == "go":
-            if not _check_entity_present("direction", object_name.lower(), game_state, current_location):
-                # Check if it's a location ID instead
-                if not _check_entity_present("location", object_name.lower(), game_state, current_location):
-                    return False
+            # Try direction first
+            if _check_entity_present("direction", _normalize(object_value), game_state, current_location):
+                return True
+            # Try location ID
+            if _check_entity_present("location", _normalize(object_value), game_state, current_location):
+                return True
+            # Try character (for talk/ask where character might be in object)
+            if _check_entity_present("character", _normalize(object_value), game_state, current_location):
+                return True
+            return False
+        # For "talk" and "ask", character may be in object (CR-004)
+        elif verb in ["talk", "ask"]:
+            if _check_entity_present("character", _normalize(object_value), game_state, current_location):
+                return True
+            return False
+        # For other verbs, object must be present
         else:
-            if not _check_entity_present("object", object_name.lower(), game_state, current_location):
+            if not _check_entity_present("object", _normalize(object_value), game_state, current_location):
                 return False
     
-    # Check target if present
+    # Check target if present (CR-004: for talk and ask, character may be in object or target)
     if "target" in intent and intent.get("target") is not None:
-        target_name = intent.get("target", "")
-        if not isinstance(target_name, str) or target_name.strip() == "":
+        target_value = intent.get("target")
+        if not isinstance(target_value, str) or target_value.strip() == "":
             return False
         
-        # For talk/give/show/use, target is a character
+        # For go commands, target may be destination id (CR-004)
+        if verb == "go":
+            if _check_entity_present("location", _normalize(target_value), game_state, current_location):
+                return True
+            return False
+        
+        # For talk/give/show/use, target is a character (CR-004)
         if verb in ["talk", "give", "show", "use", "ask"]:
-            if not _check_entity_present("character", target_name.lower(), game_state, current_location):
-                return False
+            if _check_entity_present("character", _normalize(target_value), game_state, current_location):
+                return True
+            return False
     
     return True
 
@@ -208,16 +298,20 @@ def _validate_llm_intent(intent: Dict[str, Any], game_state: dict, current_locat
 def _convert_llm_intent_to_command(intent: Dict[str, Any], game_state: dict) -> Dict[str, Any]:
     """Convert LLM intent to command format.
     
-    For "go" commands, converts "object" to "direction".
-    For "go" commands, if object is a location ID, find the exit that leads to it and use that direction.
+    CR-004: For talk and ask, character may be in object or target. For go, direction or destination may be in object or target.
+    A name or synonym in object or target is mapped to the id of the thing present.
+    
     Returns command dict ready for execution.
     """
     verb = intent.get("verb", "")
     
     if verb == "go":
-        # Model returns direction in "object" field, convert to "direction"
+        # Model returns direction in "object" field, convert to "direction" (CR-004)
+        # Or destination id in "object" or "target" (CR-004)
+        
+        # Try object field first
         object_value = intent.get("object")
-        if object_value:
+        if object_value and isinstance(object_value, str):
             # First try to normalize as a direction (north, south, east, west, n, s, e, w)
             direction = normalize_direction(object_value)
             if direction:
@@ -231,16 +325,61 @@ def _convert_llm_intent_to_command(intent: Dict[str, Any], game_state: dict) -> 
             
             for exit_info in exits:
                 target = exit_info.get("target")
-                if target and target == object_value:
+                if target and target.lower() == object_value.lower():
                     # Found the exit, return its direction
                     direction = exit_info.get("direction")
                     if direction:
                         return {"verb": "go", "direction": direction}
+        
+        # Try target field (CR-004: destination id may be in target)
+        target_value = intent.get("target")
+        if target_value and isinstance(target_value, str):
+            # Check if it's a location ID
+            current_location = game_state.get("player_location", "")
+            location_data = get_locations().get(current_location, {})
+            exits = location_data.get("exits", [])
             
-            # No matching exit found, return empty go command (will be handled by rule-based parser)
-            return {"verb": "go"}
+            for exit_info in exits:
+                target = exit_info.get("target")
+                if target and target.lower() == target_value.lower():
+                    # Found the exit, return its direction
+                    direction = exit_info.get("direction")
+                    if direction:
+                        return {"verb": "go", "direction": direction}
         
         return {"verb": "go"}
+    
+    if verb in ["talk", "ask"]:
+        # CR-004: character may be in object or target
+        target_value = intent.get("target")
+        object_value = intent.get("object")
+        
+        # Try target first, then object (for talk/ask)
+        if target_value and isinstance(target_value, str):
+            # Resolve to character ID
+            char_id = _resolve_name_to_id("character", target_value, game_state, game_state.get("player_location", ""))
+            if char_id:
+                return {"verb": verb, "target": char_id}
+        
+        if object_value and isinstance(object_value, str):
+            # Resolve to character ID
+            char_id = _resolve_name_to_id("character", object_value, game_state, game_state.get("player_location", ""))
+            if char_id:
+                return {"verb": verb, "target": char_id}
+        
+        return {"verb": verb, "target": None}
+    
+    if verb == "take":
+        # CR-004: object can be a name or synonym, mapped to ID
+        object_value = intent.get("object")
+        if object_value and isinstance(object_value, str):
+            # Resolve to object ID
+            current_location = game_state.get("player_location", "")
+            obj_id = _resolve_name_to_id("object", object_value, game_state, current_location)
+            if obj_id:
+                return {"verb": "take", "object": obj_id}
+        
+        return {"verb": "take"}
     
     # For other verbs, keep as is
     return intent
@@ -311,7 +450,7 @@ def _parse_rule_based(text: str, game_state: Optional[dict] = None) -> Optional[
     """Parse command using rule-based approach (when LLM unavailable or invalid)."""
     if not text:
         return None
-    # An article before a name is optional: "talk to the merchant" is "talk to merchant" (CR-001)
+    # An article before a name is optional: "talk to the merchant" is "talk to merchant" (CR-001, CR-004)
     text = re.sub(r"\bthe\s+", "", text)
     
     # Get current location for context
@@ -347,58 +486,61 @@ def _parse_rule_based(text: str, game_state: Optional[dict] = None) -> Optional[
     take_match = re.match(r"take\s+(.+)", text)
     if take_match:
         object_name = take_match.group(1).strip()
-        # Check if object exists
-        if object_name in get_valid_nouns(game_state, current_location):
-            return {"verb": "take", "object": object_name}
+        # Normalize name (remove "the", lowercase)
+        normalized_name = _normalize_name(object_name)
+        # Check if object exists by ID or name
+        if normalized_name in get_valid_nouns(game_state, current_location):
+            return {"verb": "take", "object": normalized_name}
     
     # Drop commands
     drop_match = re.match(r"drop\s+(.+)", text)
     if drop_match:
         object_name = drop_match.group(1).strip()
-        if object_name in get_valid_nouns(game_state, current_location):
-            return {"verb": "drop", "object": object_name}
+        normalized_name = _normalize_name(object_name)
+        if normalized_name in get_valid_nouns(game_state, current_location):
+            return {"verb": "drop", "object": normalized_name}
     
     # Give commands: "give X to Y"
     give_match = re.match(r"give\s+(\S+)\s+to\s+(\S+)", text)
     if give_match:
-        object_name = give_match.group(1).strip()
-        target_name = give_match.group(2).strip()
+        object_name = _normalize_name(give_match.group(1).strip())
+        target_name = _normalize_name(give_match.group(2).strip())
         if object_name in get_valid_nouns(game_state, current_location) and target_name in get_valid_nouns(game_state, current_location):
             return {"verb": "give", "object": object_name, "target": target_name}
     
     # Show commands: "show X to Y"
     show_match = re.match(r"show\s+(\S+)\s+to\s+(\S+)", text)
     if show_match:
-        object_name = show_match.group(1).strip()
-        target_name = show_match.group(2).strip()
+        object_name = _normalize_name(show_match.group(1).strip())
+        target_name = _normalize_name(show_match.group(2).strip())
         if object_name in get_valid_nouns(game_state, current_location) and target_name in get_valid_nouns(game_state, current_location):
             return {"verb": "show", "object": object_name, "target": target_name}
     
     # Use commands: "use X on Y"
     use_match = re.match(r"use\s+(\S+)\s+on\s+(\S+)", text)
     if use_match:
-        object_name = use_match.group(1).strip()
-        target_name = use_match.group(2).strip()
+        object_name = _normalize_name(use_match.group(1).strip())
+        target_name = _normalize_name(use_match.group(2).strip())
         valid = get_valid_nouns(game_state, current_location) | {"door", "gate", "lock"}  # the sanctum door
         if object_name in valid and target_name in valid:
             return {"verb": "use", "object": object_name, "target": target_name}
     
-    # Talk commands: "talk to Y" (accept synonyms)
+    # Talk commands: "talk to Y" (accept synonyms, CR-001, CR-004)
     talk_match = re.match(r"talk\s+to\s+(\S+)", text)
     if talk_match:
-        target_name = talk_match.group(1).strip()
+        target_name = _normalize_name(talk_match.group(1).strip())
         if target_name in get_valid_nouns(game_state, current_location):
             return {"verb": "talk", "target": target_name}
     
-    # Ask commands: "ask X about Y"
+    # Ask commands: "ask X about Y" (CR-004: character may be in object or target)
     ask_match = re.match(r"ask\s+(\S+)\s+about\s+(\S+)", text)
     if ask_match:
-        target_name = ask_match.group(1).strip()
-        object_name = ask_match.group(2).strip()
+        target_name = _normalize_name(ask_match.group(1).strip())
+        object_name = _normalize_name(ask_match.group(2).strip())
         if target_name in get_valid_nouns(game_state, current_location) and object_name in get_valid_nouns(game_state, current_location):
             return {"verb": "ask", "target": target_name, "object": object_name}
     
-    # Pick-lock command
+    # Pick-lock command (CR-001: "pick lock" not "pick-lock")
     if text.startswith("pick-lock") or text.startswith("pick lock"):
         return {"verb": "pick-lock"}
     

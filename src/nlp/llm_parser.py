@@ -95,8 +95,14 @@ def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = No
     """Interpret natural language input via LLM.
     
     Builds system message with verb list, entity names/ids, and exits (exit <direction> -> <location_id>).
+    Uses exact CR-004 instructions in system message.
     Returns structured intent dict or None if LLM unavailable/invalid.
     Context includes game state for entity resolution.
+    
+    CR-004 updates:
+    - System message includes exact instructions from CR-004 section 1
+    - Exits listed as "exit <direction> -> <location_id>" (CR-003, CR-004)
+    - Example JSON uses double quotes (CR-004)
     """
     if not context:
         messages = [
@@ -110,14 +116,14 @@ def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = No
             },
         ]
     else:
-        # Build system message with verb list and entity names/ids and exits (design 6.8, CR-003)
+        # Build system message with verb list and entity names/ids and exits (CR-004 section 1)
         content = context.get("content", {})
         locations = content.get("locations", {})
         objects = content.get("objects", {})
         characters = content.get("characters", {})
         
         # Get valid verbs
-        valid_verbs = ["look", "go", "take", "drop", "give", "show", "use", "talk", "ask", "pick-lock", "pick lock", "wait", "save", "load", "continue", "restart"]
+        valid_verbs = ["look", "go", "take", "drop", "give", "show", "use", "talk", "ask", "pick lock", "wait", "save", "load", "continue", "restart"]
         
         # Get entity names and IDs for things present at current location
         current_location = context.get("game_state", {}).get("player_location", "")
@@ -128,7 +134,7 @@ def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = No
         characters_here = location_data.get("characters", [])
         objects_in_location = location_data.get("objects", [])
         
-        # Get exits from current location
+        # Get exits from current location (CR-003, CR-004)
         exits = location_data.get("exits", [])
         
         # Build context lines for present entities
@@ -155,17 +161,18 @@ def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = No
                 char_names = characters[char_id].get("names", [char_id])
                 context_lines.append(f"Character {char_id}: {', '.join(char_names)}")
         
-        # Add exits from current location (CR-003, design 6.8)
+        # Add exits from current location (CR-003, CR-004)
         for exit_info in exits:
             direction = exit_info.get("direction")
             target = exit_info.get("target")
             if direction and target:
                 context_lines.append(f"exit {direction} -> {target}")
         
-        # Build system message with valid JSON example (double quotes)
-        system_content = "You are a game command parser.\n\n"
-        system_content += "Answer only one JSON object with 'verb', 'object', and 'target' fields.\n"
-        system_content += "Use 'null' for unused fields. Example: {\"verb\": \"take\", \"object\": \"core\", \"target\": null}\n\n"
+        # Build system message with exact CR-004 instructions (CR-004 section 1)
+        system_content = "You are a game command parser. Turn the player's sentence into one command.\n"
+        system_content += "Answer only one JSON object: {\"verb\": \"<a verb of the list>\", \"object\": \"<id>\", \"target\": \"<id>\"}.\n"
+        system_content += "Use only ids from the list below (the word after Object/Inventory/Character), or for a go the direction or the location id after the arrow. Use null for an unused field and when nothing in the list fits.\n"
+        system_content += "Example: {\"verb\": \"take\", \"object\": \"core\", \"target\": null}\n\n"
         system_content += "Available information:\n" + "\n".join(context_lines)
         
         messages = [

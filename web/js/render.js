@@ -28,15 +28,19 @@ export function renderPictures(pictures, container) {
             img.src = `/api/pictures/${pic.name}/png`;
             img.alt = pic.name;
             
+            // CR-004: Set width and height for pictures (scene 640x360, character 128x128, item 64x64)
             if (pic.type === "scene") {
-                img.style.maxWidth = "640px";
-                img.style.maxHeight = "360px";
+                img.width = 640;
+                img.height = 360;
+                img.style.maxWidth = "100%";
             } else if (pic.type === "character") {
-                img.style.maxWidth = "128px";
-                img.style.maxHeight = "128px";
+                img.width = 128;
+                img.height = 128;
+                img.style.maxWidth = "100%";
             } else {
-                img.style.maxWidth = "64px";
-                img.style.maxHeight = "64px";
+                img.width = 64;
+                img.height = 64;
+                img.style.maxWidth = "100%";
             }
             img.className = "pixelated";
             
