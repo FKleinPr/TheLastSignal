@@ -477,35 +477,10 @@ def get_pictures_endpoint():
     return get_pictures()
 
 
-@app.get("/api/pictures/{name}/png")
-def get_picture_png(name: str):
-    """Proxy image requests to the Pixel-Art Generator stub.
-    
-    Returns 404 if name is not in picture list, or if generator is down/returns 404.
-    Returns 200 with image/png bytes if successful.
-    """
-    from game_engine.pictures import get_picture_list_from_content
-    
-    # Check if name is in the picture list
-    pictures_list = get_picture_list_from_content()
-    picture_names = [p["name"] for p in pictures_list]
-    
-    if name not in picture_names:
-        raise HTTPException(status_code=404, detail=f"Picture {name} not in picture list")
-    
-    # Proxy to stub generator
-    import httpx
-    
-    pixel_art_base_url = os.getenv("PIXEL_ART_BASE_URL", "http://stub-generator:8002")
-    
-    try:
-        with httpx.Client(timeout=2.0) as client:
-            response = client.get(f"{pixel_art_base_url}/api/assets/{name}/png")
-            if response.status_code == 200:
-                return Response(content=response.content, media_type="image/png")
-            raise HTTPException(status_code=404, detail="Generator returned 404")
-    except (httpx.TimeoutException, httpx.ConnectError, Exception):
-        raise HTTPException(status_code=404, detail="Generator unavailable")
+# Import and include picture proxy router
+from api.pictures import router as picture_proxy_router
+
+app.include_router(picture_proxy_router)
 
 
 if __name__ == "__main__":
