@@ -1,0 +1,5 @@
+{
+  "title": "The Last Signal: Act I",
+  "ending_title": "ACT I COMPLETE",
+  "commands": ["look", "go north", "go south", "go east", "go west", "take core", "talk to jex", "give coolant-bottle to jex", "use key on door", "pick lock", "wait", "save", "load", "help"]
+}

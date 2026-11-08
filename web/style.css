@@ -1,0 +1,124 @@
+body {
+    font-family: monospace;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    margin: 0;
+    padding: 20px;
+}
+
+#game-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+h1 {
+    color: #d4a574;
+    text-align: center;
+}
+
+#story {
+    background: #2a2a2a;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 5px;
+    min-height: 100px;
+}
+
+#input-area {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+#input-area input {
+    flex: 1;
+    padding: 10px;
+    background: #3a3a3a;
+    border: 1px solid #555;
+    color: #e0e0e0;
+    font-family: monospace;
+}
+
+#input-area button {
+    padding: 10px 20px;
+    background: #d4a574;
+    border: none;
+    color: #1a1a1a;
+    cursor: pointer;
+    font-family: monospace;
+}
+
+#input-area button:hover {
+    background: #b8956a;
+}
+
+#inventory {
+    color: #888;
+    margin: 10px 0;
+}
+
+#commands-hint {
+    color: #666;
+    font-size: 0.9em;
+    margin-top: 10px;
+}
+
+img {
+    image-rendering: pixelated;
+    max-width: 100%;
+    height: auto;
+}
+
+.picture-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+}
+
+.picture-box {
+    background: #3a3a3a;
+    padding: 5px;
+    border-radius: 3px;
+    text-align: center;
+    font-size: 0.8em;
+}
+
+.dead-buttons {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.dead-buttons button {
+    padding: 10px 20px;
+    background: #d4a574;
+    border: none;
+    color: #1a1a1a;
+    cursor: pointer;
+    font-family: monospace;
+}
+
+.error-message {
+    color: #ff6b6b;
+    background: #2a1a1a;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.ending-message {
+    color: #51cf66;
+    background: #1a2a1a;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+@media (max-width: 600px) {
+    #input-area {
+        flex-direction: column;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+    }
+}

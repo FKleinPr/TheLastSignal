@@ -8,7 +8,7 @@ from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
 # Import and validate content
@@ -27,6 +27,46 @@ games: dict[str, dict] = {}
 TIMER_KEYS = ("core_choice", "choice_count", "choice_made_turn", "humming_count", "refusal_count", "dust_count")
 
 app = FastAPI(title="The Last Signal")
+
+# Static file serving for web client
+@app.get("/")
+def serve_index():
+    return FileResponse("web/index.html", media_type="text/html")
+
+@app.get("/web/{path:path}")
+def serve_web_file(path: str):
+    # Security check: prevent path traversal (.. and %2e%2e)
+    if ".." in path or "%2e" in path.lower():
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    full_path = os.path.join(os.path.dirname(__file__), "web", path)
+    
+    # Resolve and check path is within web directory
+    try:
+        resolved = os.path.realpath(full_path)
+        web_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "web"))
+        if not resolved.startswith(web_root):
+            raise HTTPException(status_code=404, detail="Not found")
+    except Exception:
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # Check file exists
+    if not os.path.exists(resolved):
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # Determine content type by extension
+    if path.endswith(".html"):
+        media_type = "text/html"
+    elif path.endswith(".css"):
+        media_type = "text/css"
+    elif path.endswith(".js"):
+        media_type = "text/javascript"
+    elif path.endswith(".json"):
+        media_type = "application/json"
+    else:
+        media_type = "application/octet-stream"
+    
+    return FileResponse(resolved, media_type=media_type)
 
 
 class GameState(BaseModel):
