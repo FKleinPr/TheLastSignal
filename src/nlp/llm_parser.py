@@ -94,7 +94,7 @@ def parse_llm_response(content: str) -> Optional[Dict[str, Any]]:
 def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """Interpret natural language input via LLM.
     
-    Builds system message with verb list and entity names/ids (design 6.8).
+    Builds system message with verb list, entity names/ids, and exits (exit <direction> -> <location_id>).
     Returns structured intent dict or None if LLM unavailable/invalid.
     Context includes game state for entity resolution.
     """
@@ -102,7 +102,7 @@ def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = No
         messages = [
             {
                 "role": "system",
-                "content": "You are a game command parser. Return JSON with 'verb' and optional 'object' and 'target'. Example: {'verb': 'take', 'object': 'core', 'target': null}",
+                "content": "You are a game command parser. Return JSON with 'verb' and optional 'object' and 'target'. Example: {\"verb\": \"take\", \"object\": \"core\", \"target\": null}",
             },
             {
                 "role": "user",
@@ -110,7 +110,7 @@ def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = No
             },
         ]
     else:
-        # Build system message with verb list and entity names/ids (design 6.8)
+        # Build system message with verb list and entity names/ids and exits (design 6.8, CR-003)
         content = context.get("content", {})
         locations = content.get("locations", {})
         objects = content.get("objects", {})
@@ -127,6 +127,9 @@ def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = No
         location_data = locations.get(current_location, {})
         characters_here = location_data.get("characters", [])
         objects_in_location = location_data.get("objects", [])
+        
+        # Get exits from current location
+        exits = location_data.get("exits", [])
         
         # Build context lines for present entities
         context_lines = []
@@ -152,9 +155,17 @@ def interpret_natural_language(text: str, context: Optional[Dict[str, Any]] = No
                 char_names = characters[char_id].get("names", [char_id])
                 context_lines.append(f"Character {char_id}: {', '.join(char_names)}")
         
+        # Add exits from current location (CR-003, design 6.8)
+        for exit_info in exits:
+            direction = exit_info.get("direction")
+            target = exit_info.get("target")
+            if direction and target:
+                context_lines.append(f"exit {direction} -> {target}")
+        
+        # Build system message with valid JSON example (double quotes)
         system_content = "You are a game command parser.\n\n"
-        system_content += "Return JSON with 'verb' and optional 'object' and 'target'.\n"
-        system_content += "Example: {'verb': 'take', 'object': 'core', 'target': null}\n\n"
+        system_content += "Answer only one JSON object with 'verb', 'object', and 'target' fields.\n"
+        system_content += "Use 'null' for unused fields. Example: {\"verb\": \"take\", \"object\": \"core\", \"target\": null}\n\n"
         system_content += "Available information:\n" + "\n".join(context_lines)
         
         messages = [

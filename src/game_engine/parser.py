@@ -127,6 +127,16 @@ def _check_entity_present(entity_type: str, entity_name: str, game_state: dict, 
                 return True
         return False
     
+    elif entity_type == "location":
+        # Check if location ID is reachable from current location (for go commands)
+        location_data = get_locations().get(current_location, {})
+        exits = location_data.get("exits", [])
+        for exit_info in exits:
+            target = exit_info.get("target")
+            if target and target == entity_name:
+                return True
+        return False
+    
     elif entity_type == "character":
         # Check if character is in current location
         location_data = get_locations().get(current_location, {})
@@ -171,10 +181,12 @@ def _validate_llm_intent(intent: Dict[str, Any], game_state: dict, current_locat
         if not isinstance(object_name, str) or object_name.strip() == "":
             return False
         
-        # For "go" commands, object is actually a direction
+        # For "go" commands, object can be a direction OR a location ID
         if verb == "go":
             if not _check_entity_present("direction", object_name.lower(), game_state, current_location):
-                return False
+                # Check if it's a location ID instead
+                if not _check_entity_present("location", object_name.lower(), game_state, current_location):
+                    return False
         else:
             if not _check_entity_present("object", object_name.lower(), game_state, current_location):
                 return False
@@ -197,17 +209,37 @@ def _convert_llm_intent_to_command(intent: Dict[str, Any], game_state: dict) -> 
     """Convert LLM intent to command format.
     
     For "go" commands, converts "object" to "direction".
+    For "go" commands, if object is a location ID, find the exit that leads to it and use that direction.
     Returns command dict ready for execution.
     """
     verb = intent.get("verb", "")
     
     if verb == "go":
         # Model returns direction in "object" field, convert to "direction"
-        direction = intent.get("object")
-        if direction:
-            direction = normalize_direction(direction)
+        object_value = intent.get("object")
+        if object_value:
+            # First try to normalize as a direction (north, south, east, west, n, s, e, w)
+            direction = normalize_direction(object_value)
             if direction:
                 return {"verb": "go", "direction": direction}
+            
+            # If not a direction, check if it's a location ID
+            # Find the exit from current location that leads to this location ID
+            current_location = game_state.get("player_location", "")
+            location_data = get_locations().get(current_location, {})
+            exits = location_data.get("exits", [])
+            
+            for exit_info in exits:
+                target = exit_info.get("target")
+                if target and target == object_value:
+                    # Found the exit, return its direction
+                    direction = exit_info.get("direction")
+                    if direction:
+                        return {"verb": "go", "direction": direction}
+            
+            # No matching exit found, return empty go command (will be handled by rule-based parser)
+            return {"verb": "go"}
+        
         return {"verb": "go"}
     
     # For other verbs, keep as is
