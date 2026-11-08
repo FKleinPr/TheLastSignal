@@ -1,7 +1,10 @@
-const TEST_BASE_URL = "";
+/**
+ * API client for The Last Signal game server.
+ * Handles all HTTP requests to the game server.
+ */
 
 export function makeRequest(endpoint, data = null, method = "GET") {
-    const url = endpoint.startsWith("http") ? endpoint : `${TEST_BASE_URL}${endpoint}`;
+    const url = endpoint.startsWith("http") ? endpoint : endpoint;
     const options = {
         method,
         headers: { "Content-Type": "application/json" }
@@ -20,7 +23,7 @@ export function makeRequest(endpoint, data = null, method = "GET") {
 }
 
 export function makeRequestRaw(endpoint, data = null, method = "GET") {
-    const url = endpoint.startsWith("http") ? endpoint : `${TEST_BASE_URL}${endpoint}`;
+    const url = endpoint.startsWith("http") ? endpoint : endpoint;
     const options = {
         method,
         headers: { "Content-Type": "application/json" }
@@ -67,4 +70,8 @@ export function getChapterJson(chapter = "act1") {
 
 export function getChaptersIndex() {
     return makeRequest("/web/chapters/index.json");
+}
+
+export function getPicturePng(name) {
+    return makeRequestRaw(`/api/pictures/${name}/png`);
 }

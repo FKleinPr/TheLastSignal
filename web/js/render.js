@@ -1,4 +1,7 @@
-import { getPictureListFromContent } from "./pictures.js";
+/**
+ * Rendering functions for The Last Signal web client.
+ * Uses textContent only (no HTML setting) for XSS prevention.
+ */
 
 export function renderStory(container, message, type = "player") {
     const div = document.createElement("div");
@@ -24,6 +27,7 @@ export function renderPictures(pictures, container) {
             const img = document.createElement("img");
             img.src = `/api/pictures/${pic.name}/png`;
             img.alt = pic.name;
+            
             if (pic.type === "scene") {
                 img.style.maxWidth = "640px";
                 img.style.maxHeight = "360px";
@@ -60,7 +64,9 @@ export function renderInventory(inventory, container) {
 }
 
 export function renderCommandsHint(container, chapterCommands) {
-    container.textContent = "Commands: " + (chapterCommands || "look, go north, take core, talk to jex, give coolant-bottle to jex, use key on door, pick lock, wait, save, load, help").join(", ");
+    const commands = chapterCommands || ["look", "go north", "take core", "talk to jex", 
+        "give coolant-bottle to jex", "use key on door", "pick lock", "wait", "save", "load", "help"];
+    container.textContent = "Commands: " + commands.join(", ");
 }
 
 export function renderDeadButtons(container) {

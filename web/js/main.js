@@ -1,14 +1,18 @@
+/**
+ * Main entry point for The Last Signal web client.
+ * Handles game initialization, command sending, and UI updates.
+ */
+
 import { getStoredGameId, setStoredGameId, resumeGame, startNewGame } from "./state.js";
-import { newGame, sendCommand, getGameState, getChaptersIndex, getChapterJson, resetTest, setPictures } from "./api.js";
+import { newGame, sendCommand, getGameState, getChaptersIndex, getChapterJson } from "./api.js";
 import { renderStory, renderPictures, renderInventory, renderCommandsHint, renderDeadButtons, renderEnding, renderError, emitEvent } from "./render.js";
-import { getPictureList, getPictureMeta, getPlaceholder } from "./pictures.js";
 
 const storyContainer = document.getElementById("story");
 const inputField = document.getElementById("command");
 const sendBtn = document.getElementById("send");
 const newGameBtn = document.getElementById("new-game");
 const inventoryDiv = document.getElementById("inventory");
-const commandsHintDiv = document.getElementById("commands-hints");
+const commandsHintDiv = document.getElementById("commands-hint");
 
 let gameId = null;
 let currentChapter = "act1";
@@ -113,14 +117,6 @@ function setupEventListeners() {
         } catch (e) {
             renderError(storyContainer, "Cannot reach the game server.");
             gameId = null;
-        }
-    });
-    
-    window.addEventListener("game-event", (e) => {
-        if (e.detail.event === "continue" && gameId) {
-            sendCommandInternal(gameId, "continue");
-        } else if (e.detail.event === "restart" && gameId) {
-            sendCommandInternal(gameId, "restart");
         }
     });
     
