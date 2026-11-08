@@ -10,6 +10,10 @@ CR-001 updates:
 - AC-017: Client displays pictures/placeholders based on available/terminal/placeholder flags.
 - AC-018: Client handles help and inventory locally without server interaction.
 
+CR-002 updates:
+- AC-015: README.md also contains 'Play in the browser' and 'http://127.0.0.1:18003/'.
+- AC-024: the client's help lists 'pick lock' and not 'pick-lock'.
+
 All tests run as subprocess with temporary directory as working directory (so .last-signal-game is written there).
 """
 
@@ -68,7 +72,8 @@ def verify_readme_ac015(readme: str) -> bool:
     """Verify README.md meets AC-015 requirements (1500+ chars, specific phrases)."""
     if len(readme) < 1500:
         return False
-    required_phrases = ["docker compose up", "client/play.py", "continue", "restart"]
+    required_phrases = ["docker compose up", "client/play.py", "continue", "restart", "Play in the browser",
+                        "http://127.0.0.1:18003/"]
     return all(phrase in readme for phrase in required_phrases)
 
 
@@ -148,9 +153,11 @@ class TestREADMEAC015:
         assert len(readme) >= 1500, f"README.md has {len(readme)} characters, expected at least 1500."
 
     def test_ac015_02_readme_contains_required_phrases(self):
-        """Verifies: AC-015 (README.md contains 'docker compose up', 'client/play.py', 'continue', 'restart')."""
+        """Verifies: AC-015 (README.md contains 'docker compose up', 'client/play.py', 'continue', 'restart',
+        'Play in the browser' and 'http://127.0.0.1:18003/')."""
         readme = read_readme()
-        required_phrases = ["docker compose up", "client/play.py", "continue", "restart"]
+        required_phrases = ["docker compose up", "client/play.py", "continue", "restart", "Play in the browser",
+                            "http://127.0.0.1:18003/"]
         for phrase in required_phrases:
             assert phrase in readme, f"Required phrase '{phrase}' not found in README.md."
 
@@ -208,6 +215,22 @@ class TestLocalCommandsAC018:
             # Inventory should be printed locally (not requiring server response for the command itself)
             assert "inventory" in proc.stdout.lower() or "core" in proc.stdout.lower(), \
                 f"Inventory output not found. stdout: {proc.stdout}"
+
+
+class TestClientHelpAC024:
+    """Tests for AC-024: Terminal client help command lists `pick lock` (not `pick-lock`)."""
+
+    def test_ac024_01_help_lists_pick_lock(self, api):
+        """Verifies: AC-024 (terminal client's `help` lists `pick lock` and not `pick-lock`)."""
+        with tempfile.TemporaryDirectory() as tmp_path:
+            proc = run_client(
+                ["--url", TEST_BASE_URL, "--new"],
+                input_text="help\nquit\n",
+                cwd=tmp_path,
+            )
+            assert proc.returncode == 0, f"Expected exit code 0, got {proc.returncode}. stdout: {proc.stdout}"
+            assert "pick lock" in proc.stdout, f"'pick lock' not found in help output. stdout: {proc.stdout}"
+            assert "pick-lock" not in proc.stdout, f"'pick-lock' found in help output. stdout: {proc.stdout}"
 
 
 class TestClientPersistenceAC014:

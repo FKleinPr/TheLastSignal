@@ -1,11 +1,13 @@
 """Game facts for the acceptance tests: spec section 9, design 6.7/6.8 and the decisions of test review 1.
 Tests import texts, routes and the picture list from here instead of writing them out.
 
-CR-001 updates:
+CR-002 updates:
 - Added CHARACTER_NAMES mapping for synonyms (e.g., `jex`, `merchant`).
 - Added CORE_REACTIONS with specific reaction texts for the core choice (Awakeners, Silencers, Flee).
 - Added CLIENT_OUTPUT for client-generated strings (Goodbye, Continuing your game, etc.).
 - Updated TEXT to include core reaction texts and client output strings.
+- Added WEB_PAGE_CONTENT expectations for AC-020 checks.
+- Added STUB_MODEL_SCRIPTING examples for AC-023 checks.
 """
 
 LOCATIONS = ["bone-yard", "watchtower", "scrap-market", "edge-of-town", "archives", "sanctum",
@@ -128,6 +130,27 @@ ROUTES = {
                          "go east", "give core to silencer-leader", "wait", "wait", "go north"],
     "ending_escape": ["take core", "go east", "go north", "wait", "wait", "wait"],
 }
+
+# Web page content expectations (CR-002, AC-020).
+WEB_PAGE_CONTENT = {
+    "required_ids": ["story", "command", "new-game"],
+    "required_texts": ["The Last Signal: Act I", "ACT I COMPLETE"],
+    "required_api_paths": ["/api/games", "/api/pictures/"],
+    "required_local_storage": "last-signal-game",
+    "forbidden_urls": ["http://", "https://"],
+    "max_lines_per_file": 250,
+}
+
+# Stub model scripting examples (CR-002, AC-022, AC-023).
+STUB_MODEL_SCRIPTING = {
+    "default_response": {"verb": None},
+    "scripted_take_core": {"verb": "take", "object": "core", "target": None},
+    "scripted_give_core": {"verb": "give", "object": "core", "target": "archivist-lira"},
+}
+
+# Commands to verify model request content (AC-022).
+MODEL_VERBS_TO_CHECK = ["take", "give", "talk"]
+MODEL_ENTITY_ID_TO_CHECK = "core"
 
 
 def placeholder(name: str) -> str:

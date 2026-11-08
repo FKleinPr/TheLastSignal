@@ -1,21 +1,30 @@
-"""Shared harness for The Last Signal acceptance tests (updated for CR-001).
+"""Shared harness for The Last Signal acceptance tests (updated for CR-002).
 
 Tests talk to the game only through the `api` fixture; the base URL comes from TEST_BASE_URL. Every test starts
 with POST /api/test/reset (autouse fixture): it deletes all games and resets both stubs, so the stub model has no
 script (it answers {"verb": null}) and the stub generator holds no pictures. Game facts (texts, routes, the
 picture list, character names, core reactions) are in game_data.py.
 
-CR-001 updates:
-- The terminal client (`client/play.py`) is run as a subprocess with a temporary directory for `.last-signal-game`.
+CR-002 updates:
+- Added stub generator control endpoints (`set_pictures_raw`, `set_pictures`, `generator_down_raw`, `generator_down`) to
+  script the stub generator's held pictures and mode.
+- Added `stub_model_script_raw` and `stub_model_script` to script the stub model's responses.
+- Added `stub_model_requests` to retrieve recorded LLM requests.
+- Added `readme_content` to read the repository README.md for AC-015 checks.
+- Added `png_signature` helper for AC-021 checks.
+- The terminal client tests run as subprocess with a temporary directory for `.last-signal-game`.
 - The client handles `--url` (default `http://127.0.0.1:18003`) and `--new`.
 - The client writes the game id to `.last-signal-game` and continues if it exists.
 - The client handles `dead`/`ending` flags and prints pictures (terminal vs placeholder).
 - The client handles `help` and `inventory` locally.
-- The README.md must exist, have 1500+ chars, and contain specific phrases (`docker compose up`, `client/play.py`, `continue`, `restart`).
 - The parser accepts character names/synonyms (e.g., `jex`, `merchant`).
 - The core choice triggers specific reaction texts (Awakeners, Silencers, Flee).
+- The model request includes verbs and entity names (CR-002, design 6.8).
+- The web page structure and behavior are verified via HTTP GET requests (AC-020).
+- The image proxying and stub generator behavior are verified (AC-021, AC-025).
 """
 import os
+import re
 
 import httpx
 import pytest
@@ -23,6 +32,9 @@ import pytest
 TEST_BASE_URL = os.getenv("TEST_BASE_URL", "").rstrip("/")
 if not TEST_BASE_URL:
     raise RuntimeError("TEST_BASE_URL is not set (expected e.g. http://127.0.0.1:18003)")
+
+# PNG signature for AC-021 checks.
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 class Api:
@@ -66,6 +78,7 @@ class Api:
     def reset_raw(self) -> httpx.Response:
         return self.client.post(f"{TEST_BASE_URL}/api/test/reset")
 
+    # Stub Model Control (CR-002, design 6.8, AC-022, AC-023)
     def script_llm_raw(self, contents: list) -> httpx.Response:
         return self.client.post(f"{TEST_BASE_URL}/api/test/llm-script", json={"responses": contents})
 
@@ -84,6 +97,7 @@ class Api:
     def llm_requests(self) -> list:
         return self._ok(self.llm_requests_raw())
 
+    # Stub Generator Control (CR-002, AC-021, AC-025)
     def set_pictures_raw(self, pictures: dict) -> httpx.Response:
         return self.client.post(f"{TEST_BASE_URL}/api/test/pictures", json={"pictures": pictures})
 
@@ -95,6 +109,23 @@ class Api:
 
     def generator_down(self) -> None:
         assert self.generator_down_raw().status_code == 200
+
+    # Web Client Static Files (CR-002, AC-020)
+    def get_index_raw(self) -> httpx.Response:
+        return self.client.get(f"{TEST_BASE_URL}/")
+
+    def get_web_file_raw(self, path: str) -> httpx.Response:
+        return self.client.get(f"{TEST_BASE_URL}/web/{path}")
+
+    def get_chapters_index_raw(self) -> httpx.Response:
+        return self.client.get(f"{TEST_BASE_URL}/web/chapters/index.json")
+
+    def get_chapter_json_raw(self, chapter: str = "act1") -> httpx.Response:
+        return self.client.get(f"{TEST_BASE_URL}/web/chapters/{chapter}/chapter.json")
+
+    # Image Proxying (CR-002, AC-021)
+    def get_picture_png_raw(self, name: str) -> httpx.Response:
+        return self.client.get(f"{TEST_BASE_URL}/api/pictures/{name}/png")
 
 
 @pytest.fixture(scope="session")
@@ -128,3 +159,8 @@ def readme_content() -> str:
         with open(readme_path, "r", encoding="utf-8") as f:
             return f.read()
     return ""
+
+
+def has_png_signature(data: bytes) -> bool:
+    """Check if data starts with the PNG signature."""
+    return data.startswith(PNG_SIGNATURE)
