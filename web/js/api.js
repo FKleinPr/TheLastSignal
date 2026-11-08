@@ -37,7 +37,7 @@ export function makeRequestRaw(endpoint, data = null, method = "GET") {
 }
 
 export function newGame() {
-    return makeRequest("/api/games", null, "POST");
+    return makeRequest("/api/games", {}, "POST");
 }
 
 export function getGameState(gameId) {
@@ -45,7 +45,7 @@ export function getGameState(gameId) {
 }
 
 export function sendCommand(gameId, text) {
-    return makeRequest(`/api/games/${gameId}/commands`, { text });
+    return makeRequest(`/api/games/${gameId}/commands`, { text }, "POST");
 }
 
 export function getPictures() {

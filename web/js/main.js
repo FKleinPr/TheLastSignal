@@ -13,12 +13,17 @@ const sendBtn = document.getElementById("send");
 const newGameBtn = document.getElementById("new-game");
 const inventoryDiv = document.getElementById("inventory");
 const commandsHintDiv = document.getElementById("commands-hint");
+const titleElement = document.querySelector("h1");
 
 let gameId = null;
 let currentChapter = "act1";
+let chapterData = null;
 
 async function init() {
     const storedId = resumeGame();
+    
+    // Load chapter data first
+    await loadChapterData();
     
     if (storedId) {
         try {
@@ -40,7 +45,6 @@ async function init() {
             renderStory(storyContainer, result.response.text, "system");
             renderPictures(result.response.pictures, storyContainer);
             renderInventory(result.response.inventory, inventoryDiv);
-            loadChapterData();
         } catch (e) {
             renderError(storyContainer, "Cannot reach the game server.");
             gameId = null;
@@ -54,8 +58,14 @@ async function loadChapterData() {
     try {
         const index = await getChaptersIndex();
         currentChapter = index.current;
-        const chapter = await getChapterJson(currentChapter);
-        renderCommandsHint(commandsHintDiv, chapter.commands);
+        chapterData = await getChapterJson(currentChapter);
+        
+        // Set page heading from chapter.title
+        if (chapterData && chapterData.title) {
+            titleElement.textContent = chapterData.title;
+        }
+        
+        renderCommandsHint(commandsHintDiv, chapterData.commands);
     } catch (e) {
         renderCommandsHint(commandsHintDiv, null);
     }
@@ -75,7 +85,7 @@ async function sendCommandInternal(gameId, text) {
         }
         
         if (result.ending) {
-            renderEnding(storyContainer, `ACT I COMPLETE`);
+            renderEnding(storyContainer, chapterData.ending_title);
         }
         
         return result;
