@@ -162,7 +162,7 @@ Available Commands:
   use <object> on <target>  - Use item on something
   talk to <character> - Talk to a character
   ask <character> about <topic> - Ask character something
-  pick-lock           - Pick a locked door (requires lock-pick)
+  pick lock           - Pick a locked door (requires lock-pick)
   wait                - Wait a turn
   save                - Save game state
   load                - Load saved game state
@@ -205,7 +205,7 @@ Available Commands:
   use <object> on <target>  - Use item on something
   talk to <character> - Talk to a character
   ask <character> about <topic> - Ask character something
-  pick-lock           - Pick a locked door (requires lock-pick)
+  pick lock           - Pick a locked door (requires lock-pick)
   wait                - Wait a turn
   save                - Save game state
   load                - Load saved game state

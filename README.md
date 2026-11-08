@@ -111,6 +111,10 @@ Developed by the Software Factory for The Last Signal: Act I. All content is pre
 
 Copyright 2026 The Software Factory. All rights reserved.
 
+## Play in the browser
+
+Open `http://127.0.0.1:18003/` in your web browser after starting the server. The web client is served by the game server and lets you play without installing anything. The page includes a story area, command input field, and buttons for New game, Continue, and Restart.
+
 ## Support
 
 For issues or questions, contact the development team through the project repository.
