@@ -4,7 +4,7 @@
  */
 
 import { getStoredGameId, setStoredGameId, resumeGame, startNewGame } from "./state.js";
-import { newGame, sendCommand, getGameState, getChaptersIndex, getChapterJson } from "./api.js";
+import { newGame, sendCommand, getGameState, getChaptersIndex, getChapterJson, newGameRaw } from "./api.js";
 import { renderStory, renderPictures, renderInventory, renderCommandsHint, renderDeadButtons, renderEnding, renderError, emitEvent } from "./render.js";
 
 const storyContainer = document.getElementById("story");
@@ -13,7 +13,7 @@ const sendBtn = document.getElementById("send");
 const newGameBtn = document.getElementById("new-game");
 const inventoryDiv = document.getElementById("inventory");
 const commandsHintDiv = document.getElementById("commands-hint");
-const titleElement = document.querySelector("h1");
+const titleElement = document.getElementById("page-title");
 
 let gameId = null;
 let currentChapter = "act1";
@@ -29,6 +29,7 @@ async function init() {
         try {
             const state = await getGameState(storedId);
             renderStory(storyContainer, "Continuing your game.", "system");
+            renderPictures([], storyContainer); // Clear pictures
             gameId = storedId;
             inputField.value = "";
             sendCommandInternal(gameId, "look");

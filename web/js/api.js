@@ -75,3 +75,7 @@ export function getChaptersIndex() {
 export function getPicturePng(name) {
     return makeRequestRaw(`/api/pictures/${name}/png`);
 }
+
+export function newGameRaw() {
+    return makeRequestRaw("/api/games", {}, "POST");
+}
