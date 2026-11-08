@@ -8,6 +8,12 @@ CR-002 updates:
 - Updated TEXT to include core reaction texts and client output strings.
 - Added WEB_PAGE_CONTENT expectations for AC-020 checks.
 - Added STUB_MODEL_SCRIPTING examples for AC-023 checks.
+
+CR-003 updates:
+- Added EXITS_LIST to verify the system message contains exits (e.g., `exit north -> watchtower`).
+- Added VALID_JSON_EXAMPLE to verify the system message contains valid JSON with double quotes.
+- Added MODEL_MAPPING_LOGIC to verify name-to-ID mapping for `go` and `take` commands.
+- Added INVALID_MODEL_RESPONSE to verify fallback to rule-based parser.
 """
 
 LOCATIONS = ["bone-yard", "watchtower", "scrap-market", "edge-of-town", "archives", "sanctum",
@@ -141,17 +147,51 @@ WEB_PAGE_CONTENT = {
     "max_lines_per_file": 250,
 }
 
-# Stub model scripting examples (CR-002, AC-022, AC-023).
+# Stub model scripting examples (CR-002, CR-003, AC-022, AC-023, AC-026, AC-027, AC-028, AC-029).
 STUB_MODEL_SCRIPTING = {
     "default_response": {"verb": None},
     "scripted_take_core": {"verb": "take", "object": "core", "target": None},
     "scripted_give_core": {"verb": "give", "object": "core", "target": "archivist-lira"},
+    # CR-003: Valid JSON example with double quotes
+    "valid_json_example": '{"verb": "take", "object": "core", "target": null}',
+    # CR-003: Exits list example
+    "exits_list_example": "exit north -> watchtower\nexit east -> scrap-market",
+    # CR-003: Model response mapping for `go`
+    "go_to_scrap_market": {"verb": "go", "object": "scrap-market", "target": None},
+    # CR-003: Model response mapping for `take` with name
+    "take_metal": {"verb": "take", "object": "metal", "target": None},
+    # CR-003: Invalid model response (name not present)
+    "invalid_response": {"verb": "take", "object": "shiny thing", "target": None},
 }
 
-# Commands to verify model request content (AC-022).
+# Commands to verify model request content (AC-022, AC-026).
 MODEL_VERBS_TO_CHECK = ["take", "give", "talk"]
 MODEL_ENTITY_ID_TO_CHECK = "core"
+# CR-003: Expected exits in system message
+EXPECTED_EXITS = [
+    "exit north -> watchtower",
+    "exit east -> scrap-market",
+]
+# CR-003: Expected valid JSON structure in system message
+EXPECTED_JSON_STRUCTURE = '"verb"'
 
+# Mapping logic for `go` and `take` (CR-003).
+# `go` object can be a direction or a location ID; both map to the exit's direction.
+# `take` object can be a name or id; maps to the entity's id.
+MODEL_MAPPING_LOGIC = {
+    "go_directions": ["north", "south", "east", "west", "n", "s", "e", "w"],
+    "go_location_ids": ["watchtower", "scrap-market", "edge-of-town", "archives", "sanctum", "control-center", "deep-ribs"],
+    "take_names": ["core", "metal", "glinting metal"],
+    "take_ids": ["core"],
+}
+
+# Invalid model response (CR-003).
+# When the model returns an object that is not present, the game ignores the response and falls back to the rule-based parser.
+INVALID_MODEL_RESPONSE = {
+    "verb": "take",
+    "object": "shiny thing",
+    "target": None,
+}
 
 def placeholder(name: str) -> str:
     return f"[ picture: {name} ]"

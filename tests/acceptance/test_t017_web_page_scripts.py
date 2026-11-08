@@ -1,13 +1,15 @@
-"""Acceptance tests for task T-017: Web page scripts (CR-002 section 1, design 6.10).
+"""Acceptance tests for task T-017: Web page scripts (CR-002 section 1, design 6.10, CR-003).
 
 There is no browser in the CI: the page is tested through HTTP (GET / and GET /web/...) and the text of its files;
 the JavaScript is not executed (design AD-034).
 
-Verifies: AC-020
+Verifies: AC-020, AC-030, AC-031, AC-032
 """
 import json
+import re
 
 from game_data import WEB_PAGE_CONTENT
+
 
 WEB_FILES = ["index.html", "style.css", "js/api.js", "js/state.js", "js/render.js", "js/main.js",
              "chapters/index.json", "chapters/act1/chapter.json"]
@@ -44,6 +46,15 @@ def test_scripts_are_javascript_and_name_the_api(api):
     assert "innerHTML" not in render
 
 
+def test_api_js_uses_post(api):
+    """Verifies: AC-030 (web/js/api.js sends a command with "POST"; no request to /commands without a method)."""
+    content = _file(api, "js/api.js")
+    calls = [m.start() for m in re.finditer(r"/commands", content)]
+    assert calls, "api.js does not send commands to /api/games/{id}/commands"
+    for pos in calls:
+        window = content[pos:pos + 300]  # the call that uses this URL, with its method
+        assert "POST" in window, f"a request to /commands without POST: {window[:120]!r}"
+
 def test_files_are_small_and_local(api):
     """Verifies: AC-020 (no file under web/ contains http:// or https://, each has at most 250 lines)."""
     for path in WEB_FILES:
@@ -54,15 +65,18 @@ def test_files_are_small_and_local(api):
 
 
 def test_chapter_folder(api):
-    """Verifies: AC-020 (index.json names act1; chapter.json holds title, ending_title and commands with
-    pick lock; no "Act I" in index.html or the scripts)."""
+    """Verifies: AC-020, AC-031 (index.json names act1; chapter.json holds title, ending_title and commands with
+    pick lock; no "Act I" or "ACT I" in index.html or the scripts)."""
     assert json.loads(_file(api, "chapters/index.json"))["current"] == "act1"
     chapter = json.loads(_file(api, "chapters/act1/chapter.json"))
     assert chapter["title"] == "The Last Signal: Act I"
     assert chapter["ending_title"] == "ACT I COMPLETE"
     assert "pick lock" in json.dumps(chapter["commands"])
     for path in CODE_FILES:
-        assert "Act I" not in _file(api, path), f"{path} contains chapter text"
+        text = _file(api, path)
+        # AC-031: No "Act I" or "ACT I" in any case
+        assert "Act I" not in text, f"{path} contains chapter text 'Act I'"
+        assert "ACT I" not in text, f"{path} contains chapter text 'ACT I'"
 
 
 def test_paths_outside_web_and_missing_files_are_404(api):
@@ -70,3 +84,10 @@ def test_paths_outside_web_and_missing_files_are_404(api):
     for path in ["../src/main.py", "%2e%2e/src/main.py", "no-such-file.js"]:
         r = api.get_web_file_raw(path)
         assert r.status_code == 404, f"/web/{path}: {r.status_code}"
+
+
+def test_pictures_js_removed(api):
+    """Verifies: AC-032 (GET /web/js/pictures.js returns 404)."""
+    r = api.get_web_file_raw("js/pictures.js")
+    assert r.status_code == 404, f"GET /web/js/pictures.js should return 404, got {r.status_code}"
+

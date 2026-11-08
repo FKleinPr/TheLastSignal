@@ -1,17 +1,19 @@
-"""Shared harness for The Last Signal acceptance tests (updated for CR-002).
+"""Shared harness for The Last Signal acceptance tests (updated for CR-003).
 
 Tests talk to the game only through the `api` fixture; the base URL comes from TEST_BASE_URL. Every test starts
 with POST /api/test/reset (autouse fixture): it deletes all games and resets both stubs, so the stub model has no
 script (it answers {"verb": null}) and the stub generator holds no pictures. Game facts (texts, routes, the
 picture list, character names, core reactions) are in game_data.py.
 
-CR-002 updates:
-- Added stub generator control endpoints (`set_pictures_raw`, `set_pictures`, `generator_down_raw`, `generator_down`) to
-  script the stub generator's held pictures and mode.
-- Added `stub_model_script_raw` and `stub_model_script` to script the stub model's responses.
-- Added `stub_model_requests` to retrieve recorded LLM requests.
-- Added `readme_content` to read the repository README.md for AC-015 checks.
-- Added `png_signature` helper for AC-021 checks.
+CR-003 updates:
+- Added `stub_model_script_raw` and `stub_model_script` to script the stub model's responses, including the new
+  mapping logic for `go` directions and `object`/`target` names to IDs.
+- Added `stub_model_requests` to retrieve recorded LLM requests to verify the system message contains exits and
+  valid JSON examples.
+- The stub model's responses are now expected to include `exit <direction> -> <location_id>` in the system message
+  and valid JSON with double quotes.
+- Tests verify that the game maps names to IDs correctly (e.g., `scrap-market` to direction, `metal` to `core`).
+- Tests verify that invalid model responses fall back to the rule-based parser.
 - The terminal client tests run as subprocess with a temporary directory for `.last-signal-game`.
 - The client handles `--url` (default `http://127.0.0.1:18003`) and `--new`.
 - The client writes the game id to `.last-signal-game` and continues if it exists.
@@ -22,6 +24,7 @@ CR-002 updates:
 - The model request includes verbs and entity names (CR-002, design 6.8).
 - The web page structure and behavior are verified via HTTP GET requests (AC-020).
 - The image proxying and stub generator behavior are verified (AC-021, AC-025).
+- The model request now includes exits and valid JSON examples, and the game maps names to IDs correctly (CR-003).
 """
 import os
 import re
@@ -78,8 +81,13 @@ class Api:
     def reset_raw(self) -> httpx.Response:
         return self.client.post(f"{TEST_BASE_URL}/api/test/reset")
 
-    # Stub Model Control (CR-002, design 6.8, AC-022, AC-023)
+    # Stub Model Control (CR-002, CR-003, design 6.8, AC-022, AC-023, AC-026, AC-027, AC-028, AC-029)
     def script_llm_raw(self, contents: list) -> httpx.Response:
+        """Script the stub model's responses.
+        
+        Expects a list of response strings. The stub returns the next string in the list for each /v1/chat/completions
+        request. If the list is exhausted, it returns {"verb": null}.
+        """
         return self.client.post(f"{TEST_BASE_URL}/api/test/llm-script", json={"responses": contents})
 
     def script_llm(self, contents: list) -> None:
