@@ -32,6 +32,18 @@ def test_index_page(api):
     assert 'type="module"' in r.text
 
 
+def test_index_page_loads_its_files(api):
+    """Regression (Frank's first browser test, 2026-11-08): GET / is served at the root, so a relative src or href
+    resolves outside web/ and the page loads no script; every file it names must resolve under /web/."""
+    from urllib.parse import urljoin
+    refs = re.findall(r'(?:src|href)="([^"]+)"', api.get_index_raw().text)
+    assert refs, "index.html names no script or stylesheet"
+    for ref in refs:
+        url = urljoin("/", ref)
+        assert url.startswith("/web/"), f"{ref!r} resolves to {url}, outside /web/"
+        assert api.get_web_file_raw(url[len("/web/"):]).status_code == 200, f"{url}: not served"
+
+
 def test_scripts_are_javascript_and_name_the_api(api):
     """Verifies: AC-020 (api.js is text/javascript with /api/games; state.js has last-signal-game; render.js has
     /api/pictures/ and textContent, no innerHTML)."""
