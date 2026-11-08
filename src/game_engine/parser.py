@@ -9,6 +9,13 @@ LLM Integration: When LLM_BASE_URL is set and model is reachable, calls LLM endp
 If LLM returns valid JSON with non-null verb from the verb list AND all named entities are present,
 uses that intent. If LLM is down, returns invalid JSON, or names things not present, falls back to
 rule-based parsing. For "go" commands, converts model's "object" to "direction".
+
+CR-002 updates:
+- Build system message with verb list and entity names/ids in interpret_natural_language()
+- Strip Markdown code fence from LLM response before parsing JSON (parse_llm_response handles this)
+- Stub records real request on /v1/chat/completions (no record_request() needed)
+- Ambiguity check happens before LLM and rule-based parsing (check_ambiguity_for_command)
+- For talk commands, ambiguity only checks character matches, not objects (check_ambiguity_for_talk)
 """
 
 import re
@@ -16,7 +23,7 @@ from typing import Optional, Dict, Any
 
 from content.loader import get_locations, get_objects, get_characters, get_narrator
 from game_engine.ambiguity import check_ambiguity, get_present_thing_names
-from nlp.llm_parser import interpret_natural_language, record_request
+from nlp.llm_parser import interpret_natural_language
 
 
 def normalize_direction(direction: str) -> Optional[str]:
@@ -232,10 +239,6 @@ def parse_command(text: str, game_state: Optional[dict] = None, content: Optiona
     if text_lower == "look":
         return {"verb": "look"}
     
-    # Record LLM request before calling (for testing)
-    if game_state and content:
-        record_request(text)
-    
     # Get current location and inventory from game_state
     current_location = game_state.get("player_location", "") if game_state else ""
     inventory = game_state.get("inventory", []) if game_state else []
@@ -257,7 +260,7 @@ def parse_command(text: str, game_state: Optional[dict] = None, content: Optiona
     if ambiguity_result:
         return ambiguity_result
     
-    # Try LLM interpretation if available
+    # Try LLM interpretation if available (no record_request needed - stub records real request)
     llm_intent = None
     if game_state and content:
         llm_intent = interpret_natural_language(text, {"game_state": game_state, "content": content})

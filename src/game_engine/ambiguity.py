@@ -4,6 +4,10 @@ Detects when player input matches multiple present things (objects or characters
 Returns structured response with options when ambiguity found, without changing state.
 
 Integration: Called from parser.py before executing commands that could modify state.
+
+CR-002 updates:
+- For talk commands, ambiguity only checks character matches, not objects (check_ambiguity_for_talk)
+- Return proper ambiguity response format with text field for CommandEngine handling
 """
 
 from typing import Dict, Any, Optional, List, Tuple
@@ -11,12 +15,15 @@ from typing import Dict, Any, Optional, List, Tuple
 from content.loader import get_locations, get_objects, get_characters
 
 
-def get_present_thing_names(current_location: str, inventory: List[str], characters_here: List[str]) -> Dict[str, List[str]]:
+def get_present_thing_names(current_location: str, inventory: List[str], characters_here: List[str], check_objects: bool = True, check_characters: bool = True) -> Dict[str, List[str]]:
     """Get all present things (objects/characters) and their names.
     
     Returns dict mapping thing IDs to their names list.
     Objects: in current location or in inventory.
     Characters: in current location.
+    
+    check_objects: whether to include objects in the result
+    check_characters: whether to include characters in the result
     """
     present_names: Dict[str, List[str]] = {}
     
@@ -27,26 +34,29 @@ def get_present_thing_names(current_location: str, inventory: List[str], charact
     
     # Add objects in location to present names
     objects = get_objects()
-    for obj_id in objects_in_location:
-        if obj_id in objects:
-            obj_data = objects[obj_id]
-            names = obj_data.get("names", [obj_id])
-            present_names[obj_id] = names
+    if check_objects:
+        for obj_id in objects_in_location:
+            if obj_id in objects:
+                obj_data = objects[obj_id]
+                names = obj_data.get("names", [obj_id])
+                present_names[obj_id] = names
     
     # Add objects in inventory to present names
-    for obj_id in inventory:
-        if obj_id in objects:
-            obj_data = objects[obj_id]
-            names = obj_data.get("names", [obj_id])
-            present_names[obj_id] = names
+    if check_objects:
+        for obj_id in inventory:
+            if obj_id in objects:
+                obj_data = objects[obj_id]
+                names = obj_data.get("names", [obj_id])
+                present_names[obj_id] = names
     
     # Add characters in current location to present names
-    characters = get_characters()
-    for char_id in characters_here:
-        if char_id in characters:
-            char_data = characters[char_id]
-            names = char_data.get("names", [char_id])
-            present_names[char_id] = names
+    if check_characters:
+        characters = get_characters()
+        for char_id in characters_here:
+            if char_id in characters:
+                char_data = characters[char_id]
+                names = char_data.get("names", [char_id])
+                present_names[char_id] = names
     
     return present_names
 
@@ -89,13 +99,16 @@ def format_ambiguity_response(ambiguous_word: str, matches: List[str], narrator_
     return f"{narrator_ambiguous} {ambiguous_word}? Options: {options}."
 
 
-def check_ambiguity(text: str, current_location: str, inventory: List[str], characters_here: List[str], narrator_ambiguous: str) -> Optional[str]:
+def check_ambiguity(text: str, current_location: str, inventory: List[str], characters_here: List[str], narrator_ambiguous: str, check_objects: bool = True, check_characters: bool = True) -> Optional[str]:
     """Check if input is ambiguous and return response text if so.
     
     Returns ambiguity response text or None if no ambiguity.
     Does not modify state.
+    
+    check_objects: whether to include objects in ambiguity check
+    check_characters: whether to include characters in ambiguity check
     """
-    present_names = get_present_thing_names(current_location, inventory, characters_here)
+    present_names = get_present_thing_names(current_location, inventory, characters_here, check_objects, check_characters)
     
     ambiguous_result = find_ambiguous_matches(text, present_names)
     
@@ -104,3 +117,13 @@ def check_ambiguity(text: str, current_location: str, inventory: List[str], char
         return format_ambiguity_response(ambiguous_word, matches, narrator_ambiguous)
     
     return None
+
+
+def check_ambiguity_for_talk(text: str, current_location: str, inventory: List[str], characters_here: List[str], narrator_ambiguous: str) -> Optional[str]:
+    """Check if talk command is ambiguous and return response text if so.
+    
+    For talk commands, only checks character matches, not objects (CR-001, FR-030).
+    Returns ambiguity response text or None if no ambiguity.
+    Does not modify state.
+    """
+    return check_ambiguity(text, current_location, inventory, characters_here, narrator_ambiguous, check_objects=False, check_characters=True)
