@@ -1,14 +1,14 @@
-"""Acceptance tests for task T-017: Web page scripts (CR-002 section 1, design 6.10, CR-003).
+"""Acceptance tests for task T-017: Web page scripts (CR-002, CR-003, CR-004).
 
 There is no browser in the CI: the page is tested through HTTP (GET / and GET /web/...) and the text of its files;
 the JavaScript is not executed (design AD-034).
 
-Verifies: AC-020, AC-030, AC-031, AC-032
+Verifies: AC-020, AC-030, AC-031, AC-032, AC-037
 """
 import json
 import re
 
-from game_data import WEB_PAGE_CONTENT
+from game_data import WEB_PAGE_CONTENT, EXPECTED_RENDER_JS_SIZES
 
 
 WEB_FILES = ["index.html", "style.css", "js/api.js", "js/state.js", "js/render.js", "js/main.js",
@@ -91,3 +91,8 @@ def test_pictures_js_removed(api):
     r = api.get_web_file_raw("js/pictures.js")
     assert r.status_code == 404, f"GET /web/js/pictures.js should return 404, got {r.status_code}"
 
+def test_render_js_dimensions(api):
+    """Verifies: AC-037 (web/js/render.js sets width and height for pictures: 640, 360, 128, 64)."""
+    render = _file(api, "js/render.js")
+    for size in EXPECTED_RENDER_JS_SIZES:
+        assert size in render, f"render.js should contain '{size}'"

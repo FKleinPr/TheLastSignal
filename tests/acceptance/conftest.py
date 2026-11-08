@@ -1,30 +1,20 @@
-"""Shared harness for The Last Signal acceptance tests (updated for CR-003).
+"""Shared harness for The Last Signal acceptance tests (updated for CR-004).
 
 Tests talk to the game only through the `api` fixture; the base URL comes from TEST_BASE_URL. Every test starts
 with POST /api/test/reset (autouse fixture): it deletes all games and resets both stubs, so the stub model has no
 script (it answers {"verb": null}) and the stub generator holds no pictures. Game facts (texts, routes, the
 picture list, character names, core reactions) are in game_data.py.
 
-CR-003 updates:
-- Added `stub_model_script_raw` and `stub_model_script` to script the stub model's responses, including the new
-  mapping logic for `go` directions and `object`/`target` names to IDs.
-- Added `stub_model_requests` to retrieve recorded LLM requests to verify the system message contains exits and
-  valid JSON examples.
-- The stub model's responses are now expected to include `exit <direction> -> <location_id>` in the system message
-  and valid JSON with double quotes.
-- Tests verify that the game maps names to IDs correctly (e.g., `scrap-market` to direction, `metal` to `core`).
-- Tests verify that invalid model responses fall back to the rule-based parser.
-- The terminal client tests run as subprocess with a temporary directory for `.last-signal-game`.
-- The client handles `--url` (default `http://127.0.0.1:18003`) and `--new`.
-- The client writes the game id to `.last-signal-game` and continues if it exists.
-- The client handles `dead`/`ending` flags and prints pictures (terminal vs placeholder).
-- The client handles `help` and `inventory` locally.
-- The parser accepts character names/synonyms (e.g., `jex`, `merchant`).
-- The core choice triggers specific reaction texts (Awakeners, Silencers, Flee).
-- The model request includes verbs and entity names (CR-002, design 6.8).
-- The web page structure and behavior are verified via HTTP GET requests (AC-020).
-- The image proxying and stub generator behavior are verified (AC-021, AC-025).
-- The model request now includes exits and valid JSON examples, and the game maps names to IDs correctly (CR-003).
+CR-004 updates:
+- Added `EXPECTED_SYSTEM_MESSAGE_INSTRUCTIONS` to verify the system message text sent to the model.
+- Added `EXPECTED_RENDER_JS_SIZES` to verify web/js/render.js sets width/height for pictures.
+- Updated `STUB_MODEL_SCRIPTING` in game_data.py to include the new answer shapes accepted by the game:
+  - `talk` and `ask`: character in `object` or `target`.
+  - `go`: direction or destination id in `object` or `target`.
+  - Name mapping (e.g., `signal` -> `core`).
+- The stub model scripts responses as Python dicts (CR-004 acceptance criteria).
+- The system message verification checks for the specific instructions required by CR-004.
+- The render.js verification checks for width/height strings in the file content.
 """
 import os
 import re
@@ -81,11 +71,11 @@ class Api:
     def reset_raw(self) -> httpx.Response:
         return self.client.post(f"{TEST_BASE_URL}/api/test/reset")
 
-    # Stub Model Control (CR-002, CR-003, design 6.8, AC-022, AC-023, AC-026, AC-027, AC-028, AC-029)
+    # Stub Model Control (CR-002, CR-003, CR-004, design 6.8, AC-022, AC-023, AC-026, AC-027, AC-028, AC-029, AC-033, AC-034, AC-035, AC-036)
     def script_llm_raw(self, contents: list) -> httpx.Response:
         """Script the stub model's responses.
         
-        Expects a list of response strings. The stub returns the next string in the list for each /v1/chat/completions
+        Expects a list of response strings or dicts. The stub returns the next item in the list for each /v1/chat/completions
         request. If the list is exhausted, it returns {"verb": null}.
         """
         return self.client.post(f"{TEST_BASE_URL}/api/test/llm-script", json={"responses": contents})
@@ -118,7 +108,7 @@ class Api:
     def generator_down(self) -> None:
         assert self.generator_down_raw().status_code == 200
 
-    # Web Client Static Files (CR-002, AC-020)
+    # Web Client Static Files (CR-002, AC-020, AC-037)
     def get_index_raw(self) -> httpx.Response:
         return self.client.get(f"{TEST_BASE_URL}/")
 

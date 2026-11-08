@@ -14,6 +14,15 @@ CR-003 updates:
 - Added VALID_JSON_EXAMPLE to verify the system message contains valid JSON with double quotes.
 - Added MODEL_MAPPING_LOGIC to verify name-to-ID mapping for `go` and `take` commands.
 - Added INVALID_MODEL_RESPONSE to verify fallback to rule-based parser.
+
+CR-004 updates:
+- Added EXPECTED_SYSTEM_MESSAGE_INSTRUCTIONS to verify the exact system message text sent to the model.
+- Added EXPECTED_RENDER_JS_SIZES to verify web/js/render.js sets width/height for pictures (640, 360, 128, 64).
+- Updated STUB_MODEL_SCRIPTING to include the new answer shapes accepted by the game:
+  - `talk` and `ask`: character in `object` or `target`.
+  - `go`: direction or destination id in `object` or `target`.
+  - Name mapping (e.g., `signal` -> `core`).
+- Updated MODEL_MAPPING_LOGIC to reflect the specific mappings required by CR-004.
 """
 
 LOCATIONS = ["bone-yard", "watchtower", "scrap-market", "edge-of-town", "archives", "sanctum",
@@ -137,7 +146,7 @@ ROUTES = {
     "ending_escape": ["take core", "go east", "go north", "wait", "wait", "wait"],
 }
 
-# Web page content expectations (CR-002, AC-020).
+# Web page content expectations (CR-002, AC-020, AC-037).
 WEB_PAGE_CONTENT = {
     "required_ids": ["story", "command", "new-game"],
     "required_texts": ["The Last Signal: Act I", "ACT I COMPLETE"],
@@ -147,7 +156,15 @@ WEB_PAGE_CONTENT = {
     "max_lines_per_file": 250,
 }
 
-# Stub model scripting examples (CR-002, CR-003, AC-022, AC-023, AC-026, AC-027, AC-028, AC-029).
+# Expected system message instructions (CR-004, AC-033).
+EXPECTED_SYSTEM_MESSAGE_INSTRUCTIONS = "Use only ids from the list below"  # AC-033 checks this part only
+
+# Expected render.js sizes (CR-004, AC-037).
+# The width and height strings that must appear in web/js/render.js.
+EXPECTED_RENDER_JS_SIZES = ["640", "360", "128", "64"]
+
+# Stub model scripting examples (CR-002, CR-003, CR-004, AC-022, AC-023, AC-026, AC-027, AC-028, AC-029, AC-033, AC-034, AC-035, AC-036).
+# These Python dicts are serialized to JSON and sent to the stub model, which returns them to the game server.
 STUB_MODEL_SCRIPTING = {
     "default_response": {"verb": None},
     "scripted_take_core": {"verb": "take", "object": "core", "target": None},
@@ -158,10 +175,16 @@ STUB_MODEL_SCRIPTING = {
     "exits_list_example": "exit north -> watchtower\nexit east -> scrap-market",
     # CR-003: Model response mapping for `go`
     "go_to_scrap_market": {"verb": "go", "object": "scrap-market", "target": None},
-    # CR-003: Model response mapping for `take` with name
+    # CR-003/CR-004: Model response mapping for `take` with name
     "take_metal": {"verb": "take", "object": "metal", "target": None},
-    # CR-003: Invalid model response (name not present)
+    # CR-003/CR-004: Invalid model response (name not present)
     "invalid_response": {"verb": "take", "object": "shiny thing", "target": None},
+    # CR-004: Name mapping (signal -> core)
+    "take_signal": {"verb": "take", "object": "signal", "target": None},
+    # CR-004: Character in `object` for `talk`
+    "talk_merchant_in_object": {"verb": "talk", "object": "merchant-jex", "target": None},
+    # CR-004: Direction/destination in `target` for `go`
+    "go_bone_yard_in_target": {"verb": "go", "object": None, "target": "bone-yard"},
 }
 
 # Commands to verify model request content (AC-022, AC-026).
@@ -175,17 +198,21 @@ EXPECTED_EXITS = [
 # CR-003: Expected valid JSON structure in system message
 EXPECTED_JSON_STRUCTURE = '"verb"'
 
-# Mapping logic for `go` and `take` (CR-003).
+# Mapping logic for `go` and `take` (CR-003, CR-004).
 # `go` object can be a direction or a location ID; both map to the exit's direction.
 # `take` object can be a name or id; maps to the entity's id.
+# CR-004: `talk` and `ask` accept character in `object` or `target`.
+# CR-004: `go` accepts direction/destination in `object` or `target`.
 MODEL_MAPPING_LOGIC = {
     "go_directions": ["north", "south", "east", "west", "n", "s", "e", "w"],
     "go_location_ids": ["watchtower", "scrap-market", "edge-of-town", "archives", "sanctum", "control-center", "deep-ribs"],
-    "take_names": ["core", "metal", "glinting metal"],
+    "go_destination_ids": ["bone-yard", "watchtower", "scrap-market", "edge-of-town", "archives", "sanctum", "control-center", "deep-ribs"],
+    "take_names": ["core", "metal", "glinting metal", "signal"],
     "take_ids": ["core"],
+    "talk_targets": ["merchant-jex", "archivist-lira", "priest-voa", "silencer-leader", "child-echo"],
 }
 
-# Invalid model response (CR-003).
+# Invalid model response (CR-003, CR-004).
 # When the model returns an object that is not present, the game ignores the response and falls back to the rule-based parser.
 INVALID_MODEL_RESPONSE = {
     "verb": "take",
